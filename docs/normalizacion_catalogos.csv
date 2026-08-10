@@ -1,0 +1,22 @@
+catalogo,original_id,original_nombre,canonical_id,canonical_nombre,motivo,ejercicios_afectados
+espacios,24,30 x 30 metros.,4,30 x 30 metros,punto final redundante,2
+espacios,8,15 x 15 metros.,16,15 x 15 metros,punto final redundante,1
+espacios,25,20 x 30 metros.,21,20 x 30 metros,punto final redundante,1
+espacios,26,20 x 15 metros.,22,20 x 15 metros,punto final redundante,1
+espacios,28,40 x 20 metros.,31,40 x 20 metros,punto final redundante,2
+tiempos,9,2 series de 5',1,2 Series de 5',variante de mayúsculas,2
+tiempos,3,2 series de 6',2,2 Series de 6',variante de mayúsculas,7
+tiempos,8,2 series de 8',4,2 Series de 8',variante de mayúsculas,4
+tiempos,25,2 series de 10',17,2 Series de 10',variante de mayúsculas,5
+tiempos,23,2 series de 15',20,2 Series de 15',variante de mayúsculas,5
+tiempos,27,2 Series de 12',24,2 series de 12',variante de mayúsculas,1
+materiales,7,- Juego de chinos Balones,3,Juego de chinos Balones,guion inicial redundante,1
+materiales,4,Juego de chinos Setas planas Balones.,5,Juego de chinos Setas planas Balones,punto final redundante,1
+materiales,8,Setas planas Balones,6,Setas planas Balones,variante de mayúsculas,1
+materiales,20,2 MIniporterias Juego de chinos Petos Balones,16,2 Miniporterías Juego de chinos Petos Balones,errata de mayúsculas en miniporterías,1
+materiales,18,Juego de chinos petos Balones,17,Juego de chinos Petos Balones,variante de mayúsculas,1
+materiales,42,Juego de chInos Petos Balones,17,Juego de chinos Petos Balones,variante de mayúsculas,1
+materiales,29,- Juego de chinos,27,Juego de chinos,guion inicial redundante,1
+materiales,44,Juego de chinos Setas Planas Petos Balones,41,Juego de chinos Setas planas Petos Balones,variante de mayúsculas,1
+materiales,47,Juego de chinos y Setas planas Miniporterias Petos Balones,46,Juego de chinos y Setas planas Miniporterías Petos Balones,variante de mayúsculas,1
+materiales,49,Juego de chinos y setas planas Petos Balones Porteria Auxiliar,48,Juego de chinos y Setas planas Petos Balones Portería auxiliar,variante de mayúsculas,1

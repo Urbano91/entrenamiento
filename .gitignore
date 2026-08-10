@@ -1,0 +1,61 @@
+# =========================
+# Python
+# =========================
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =========================
+# Node / React / Vite
+# =========================
+node_modules/
+dist/
+.vite/
+
+# =========================
+# Environment / secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# SQLite / bases de datos
+# =========================
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+*.bak-*
+
+# =========================
+# Documentos y archivos privados
+# =========================
+database/documentos/
+uploads/
+storage/
+
+# =========================
+# Sistema / IDE
+# =========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# =========================
+# Instaladores / archivos locales
+# =========================
+*.deb
+*.AppImage
+*.exe
+*.msi
+
+# =========================
+# Logs
+# =========================
+*.log

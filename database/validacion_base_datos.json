@@ -1,0 +1,33 @@
+{
+  "checks": {
+    "ejercicios": 114,
+    "tipos": 10,
+    "objetivos": 182,
+    "relaciones_objetivos": 709,
+    "materiales": 54,
+    "relaciones_materiales": 114,
+    "imagenes": 122,
+    "apariciones_imagenes": 172,
+    "textos_originales": 989,
+    "ejercicios_sin_tipo": 0,
+    "ejercicios_sin_espacio": 0,
+    "ejercicios_sin_tiempo": 0,
+    "ejercicios_sin_desarrollo": 0,
+    "codigos_duplicados": 0,
+    "numeros_duplicados": 0,
+    "codigos_perdidos": 0,
+    "codigos_extra": 0
+  },
+  "ejercicios_por_tipo": {
+    "ABP": 9,
+    "Acción Combinada": 5,
+    "Ataque/Defensa": 7,
+    "Circuito": 19,
+    "Juego de Posesión": 16,
+    "Juego de Posición": 13,
+    "Juego lúdico": 6,
+    "Partido Condicionado": 6,
+    "Rondo": 19,
+    "Rueda de pase": 14
+  }
+}
