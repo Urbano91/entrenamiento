@@ -6,7 +6,7 @@ import { TemporalNavigation } from '../components/TemporalNavigation';
 import { changeFocusDate, datesForView, isoDate, TemporalView } from '../components/temporal';
 import { ActionLink, Badge, Button, Modal, PageHeader, Surface } from '../components/ui';
 import { EntrenamientoDetail, EntrenamientoList, Temporada } from '../types/fase2';
-import { Clock3, Copy, Dumbbell, Edit3, Eye, Plus, Target, Trash2, UserRound } from 'lucide-react';
+import { Clock3, Copy, Dumbbell, Plus, Target } from 'lucide-react';
 
 const todayIso = () => {
     const date = new Date();
