@@ -59,3 +59,14 @@ Thumbs.db
 # Logs
 # =========================
 *.log
+
+# =========================
+# Variables de entorno / secretos
+# =========================
+
+.env
+.env.*
+!.env.example
+
+# Instaladores locales
+*.deb

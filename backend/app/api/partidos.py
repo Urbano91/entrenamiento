@@ -9,6 +9,7 @@ from app.api.auth import get_current_user
 from app.db.database import get_db
 from app.models.models import Partido, Usuario
 from app.services.season_context import active_season_id, selected_season_id
+from app.services.permissions import require_onboarded_trainer
 
 
 router = APIRouter(prefix="/api/partidos", tags=["Partidos"])
@@ -122,6 +123,7 @@ def create_partido(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    require_onboarded_trainer(db, current_user)
     temporada_id = active_season_id(db, current_user.id)
     partido = Partido(
         usuario_id=current_user.id,
@@ -149,6 +151,7 @@ def update_partido(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    require_onboarded_trainer(db, current_user)
     partido = _owned_partido(db, partido_id, current_user.id)
     fields = data.model_fields_set
     if "fecha" in fields:
@@ -183,6 +186,7 @@ def delete_partido(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    require_onboarded_trainer(db, current_user)
     partido = _owned_partido(db, partido_id, current_user.id)
     db.delete(partido)
     db.commit()

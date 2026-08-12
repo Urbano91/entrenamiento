@@ -6,11 +6,11 @@ import {
 } from 'lucide-react';
 
 const navItems = [
-    { to: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
-    { to: '/calendario', label: 'Calendario', icon: CalendarDays },
-    { to: '/entrenamientos', label: 'Mis entrenamientos', icon: Dumbbell },
-    { to: '/biblioteca', label: 'Biblioteca', icon: BookOpen },
-    { to: '/perfil', label: 'Mi Perfil', icon: UserCircle2 },
+    { to: '/dashboard', label: 'Inicio', mobileLabel: 'Inicio', icon: LayoutDashboard },
+    { to: '/calendario', label: 'Calendario', mobileLabel: 'Calendario', icon: CalendarDays },
+    { to: '/entrenamientos', label: 'Mis entrenamientos', mobileLabel: 'Entrenos', icon: Dumbbell },
+    { to: '/biblioteca', label: 'Biblioteca', mobileLabel: 'Biblioteca', icon: BookOpen },
+    { to: '/perfil', label: 'Mi Perfil', mobileLabel: 'Mi Perfil', icon: UserCircle2 },
 ];
 
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -71,22 +71,22 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             </header>
 
             <nav className="fixed bottom-0 left-0 right-0 z-50 flex border-t border-primary-800 bg-primary-950 px-1 pb-[env(safe-area-inset-bottom)] shadow-2xl lg:hidden" aria-label="Navegación móvil">
-                {navItems.map(({ to, label, icon: Icon }) => (
+                {navItems.map(({ to, mobileLabel, icon: Icon }) => (
                     <NavLink
                         key={to}
                         to={to}
                         className={({ isActive }) =>
-                            `flex min-h-16 flex-1 flex-col items-center justify-center rounded-lg px-1 py-2 text-[11px] font-semibold transition-colors ${isActive ? 'bg-primary-800 text-white' : 'text-primary-200 hover:bg-primary-900 hover:text-white'
+                            `flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center rounded-lg px-1 py-2 text-[11px] font-semibold transition-colors ${isActive ? 'bg-primary-800 text-white' : 'text-primary-200 hover:bg-primary-900 hover:text-white'
                             }`
                         }
                     >
                         <Icon className="w-5 h-5 mb-0.5" />
-                        <span className="max-w-[68px] truncate text-center">{label}</span>
+                        <span className="whitespace-nowrap text-center leading-tight">{mobileLabel}</span>
                     </NavLink>
                 ))}
             </nav>
 
-            <main className="mx-auto w-full max-w-[1600px] flex-grow px-4 py-6 pb-24 sm:px-6 lg:px-8 lg:py-8 lg:pb-10">
+            <main className="mx-auto w-full max-w-[1600px] flex-grow px-4 py-5 pb-24 sm:px-6 lg:px-8 lg:py-6 lg:pb-9">
                 {children}
             </main>
         </div>

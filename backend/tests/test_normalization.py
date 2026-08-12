@@ -137,6 +137,9 @@ def test_denormalized_objective_fields_match_canonical_relations():
 
 def test_source_counts_are_preserved():
     with engine.connect() as connection:
-        assert connection.execute(text("SELECT COUNT(*) FROM ejercicios")).scalar_one() == 114
+        assert connection.execute(text(
+            "SELECT COUNT(*) FROM ejercicios e WHERE NOT EXISTS ("
+            "SELECT 1 FROM exercise_ownership own WHERE own.ejercicio_id=e.id)"
+        )).scalar_one() == 114
         assert connection.execute(text("SELECT COUNT(*) FROM imagenes")).scalar_one() == 122
         assert connection.execute(text("SELECT COUNT(*) FROM texto_original")).scalar_one() == 989

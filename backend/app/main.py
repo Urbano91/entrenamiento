@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
-    auth, calendario, catalogos, ejercicios, entrenamientos, imagenes, partidos,
-    perfil, planificaciones, temporadas,
+    admin, auth, calendario, catalogos, club, ejercicios, entrenamientos, imagenes, partidos,
+    perfil, planificaciones, taxonomia, temporadas,
 )
 
 app = FastAPI(title="Base de Entrenamiento de Fútbol API", version="3.1.0")
@@ -16,11 +16,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Fase 1
 app.include_router(auth.router)
 app.include_router(ejercicios.router)
 app.include_router(catalogos.router)
 app.include_router(imagenes.router)
+app.include_router(taxonomia.router)
+app.include_router(club.router)
+app.include_router(admin.router)
 
 # Fase 2
 app.include_router(perfil.router)

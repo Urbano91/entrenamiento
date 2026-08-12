@@ -8,3 +8,5 @@ passlib[bcrypt]
 pytest
 httpx2
 PyJWT
+psycopg2-binary
+openpyxl

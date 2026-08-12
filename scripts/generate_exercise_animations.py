@@ -103,7 +103,10 @@ def line(draw: ImageDraw.ImageDraw, points: Iterable[Point], *, fill=WHITE, widt
 
 def cone(draw: ImageDraw.ImageDraw, point: Point, color=AMBER) -> None:
     x, y = xy(point)
-    draw.polygon(((x, y - 8), (x - 8, y + 7), (x + 8, y + 7)), fill=color, outline=INK)
+    # El cono se representa como material bajo y no como un triángulo que
+    # pueda confundirse visualmente con una bandera o marcador direccional.
+    draw.rounded_rectangle((x - 7, y - 5, x + 7, y + 5), radius=3, fill=color, outline=INK, width=2)
+    draw.line((x - 9, y + 6, x + 9, y + 6), fill=INK, width=2)
 
 
 def goal(draw: ImageDraw.ImageDraw, center: Point, horizontal: bool = True) -> None:
@@ -137,12 +140,6 @@ def draw_dashed_arrow(draw: ImageDraw.ImageDraw, start: Point, end: Point, color
         finish = min(cursor + 10, distance - 18)
         draw.line((sx + ux * cursor, sy + uy * cursor, sx + ux * finish, sy + uy * finish), fill=color, width=4)
         cursor += 17
-    angle = math.atan2(dy, dx)
-    arrow = 13
-    wing = 0.55
-    left = (ex - arrow * math.cos(angle - wing), ey - arrow * math.sin(angle - wing))
-    right = (ex - arrow * math.cos(angle + wing), ey - arrow * math.sin(angle + wing))
-    draw.polygon(((ex, ey), left, right), fill=color)
 
 
 def draw_player(draw: ImageDraw.ImageDraw, point: Point, color: tuple[int, int, int], radius: int) -> None:

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from app.db.database import get_db
 from app.models.models import PerfilEntrenador, Temporada, Usuario
 from app.api.auth import get_current_user
+from app.services.permissions import require_onboarded_trainer
 
 router = APIRouter(prefix="/api/temporadas", tags=["Temporadas"])
 
@@ -54,6 +55,7 @@ def create_temporada(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    require_onboarded_trainer(db, current_user)
     temporada = Temporada(
         nombre=data.nombre,
         fecha_inicio=data.fecha_inicio,

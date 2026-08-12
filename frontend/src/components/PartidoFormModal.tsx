@@ -95,7 +95,7 @@ export const PartidoFormModal: React.FC<PartidoFormModalProps> = ({
                 </div>
             }
         >
-            <form id="partido-form" onSubmit={handleSubmit} className="grid gap-5 sm:grid-cols-2">
+            <form id="partido-form" onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
                 <div>
                     <label className="field-label">Fecha *</label>
                     <input type="date" className="field-control" value={form.fecha} onChange={event => setForm(current => ({ ...current, fecha: event.target.value }))} />
@@ -121,7 +121,7 @@ export const PartidoFormModal: React.FC<PartidoFormModalProps> = ({
                 </div>
                 <div className="sm:col-span-2">
                     <label className="field-label">Observaciones</label>
-                    <textarea rows={4} className="field-control resize-none" value={form.observaciones} onChange={event => setForm(current => ({ ...current, observaciones: event.target.value }))} placeholder="Indicaciones para el cuerpo técnico…" />
+                    <textarea rows={3} className="field-control resize-none" value={form.observaciones} onChange={event => setForm(current => ({ ...current, observaciones: event.target.value }))} placeholder="Indicaciones para el cuerpo técnico…" />
                 </div>
                 {error && <p className="sm:col-span-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">{error}</p>}
             </form>

@@ -4,12 +4,17 @@ import { api } from '../services/api';
 export interface User {
     id: number;
     usuario: string;
+    activo: boolean;
+    account_type: 'ADMIN' | 'ENTRENADOR' | 'CLUB';
+    must_change_password: boolean;
+    onboarding_complete: boolean;
 }
 
 interface AuthContextType {
     user: User | null;
     loading: boolean;
     login: (user: User) => void;
+    refreshUser: () => Promise<User | null>;
     logout: () => Promise<void>;
 }
 
@@ -19,18 +24,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const checkAuth = async () => {
+    const refreshUser = async () => {
             try {
                 const userData = await api.get<User>('/auth/me');
                 setUser(userData);
+                return userData;
             } catch {
                 setUser(null);
+                return null;
             } finally {
                 setLoading(false);
             }
-        }
-        checkAuth();
+    };
+
+    useEffect(() => {
+        refreshUser();
     }, []);
 
     const login = (userData: User) => setUser(userData);
@@ -44,7 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, logout }}>
+        <AuthContext.Provider value={{ user, loading, login, refreshUser, logout }}>
             {children}
         </AuthContext.Provider>
     );

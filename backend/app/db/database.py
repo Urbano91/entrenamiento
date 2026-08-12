@@ -1,11 +1,23 @@
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///../database/futbol_entrenamiento.sqlite")
+from sqlalchemy import create_engine, event
+from sqlalchemy.engine import URL, make_url
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+
+DEFAULT_DATABASE_URL = "sqlite:///../database/futbol_entrenamiento.sqlite"
+DATABASE_URL = os.getenv("DATABASE_URL") or DEFAULT_DATABASE_URL
+
+
+def engine_options(database_url: str | URL) -> dict:
+    """Devuelve únicamente opciones compatibles con el driver configurado."""
+    if make_url(database_url).get_backend_name() == "sqlite":
+        return {"connect_args": {"check_same_thread": False}}
+    return {}
 
 engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
+    DATABASE_URL,
+    **engine_options(DATABASE_URL),
 )
 
 

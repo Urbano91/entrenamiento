@@ -36,16 +36,20 @@ export interface EntrenamientoList {
     id: number;
     temporada_id: number;
     fecha: string;
+    hora?: string | null;
     nombre: string;
     duracion_minutos?: number;
     objetivo_principal?: string;
     num_ejercicios: number;
     created_at?: string;
+    entrenador?: string | null;
+    categoria?: string | null;
 }
 
 export interface EntrenamientoDetail {
     id: number;
     fecha: string;
+    hora?: string | null;
     nombre: string;
     duracion_minutos?: number;
     objetivo_principal?: string;
@@ -59,6 +63,7 @@ export interface EntrenamientoDetail {
 export interface EntrenamientoCalendario {
     id: number;
     nombre: string;
+    hora?: string | null;
     duracion_minutos?: number | null;
     num_ejercicios: number;
     objetivo_principal?: string | null;
@@ -80,6 +85,7 @@ export interface Partido {
 
 export interface PlanificacionDia {
     fecha: string;
+    nota?: string | null;
     entrenamientos: EntrenamientoCalendario[];
     resumen_entrenamiento: {
         entrenamientos_planificados: number;

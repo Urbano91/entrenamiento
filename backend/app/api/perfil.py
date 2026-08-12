@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.models import PerfilEntrenador, Temporada, Usuario
 from app.api.auth import get_current_user
+from app.services.permissions import require_trainer
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
@@ -41,6 +42,7 @@ class PerfilOut(BaseModel):
 
 @router.get("", response_model=PerfilOut)
 def get_perfil(current_user: Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
+    require_trainer(db, current_user)
     perfil = db.query(PerfilEntrenador).filter(PerfilEntrenador.usuario_id == current_user.id).first()
     if not perfil:
         raise HTTPException(status_code=404, detail="Perfil no encontrado")
@@ -53,6 +55,7 @@ def upsert_perfil(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    require_trainer(db, current_user)
     perfil = db.query(PerfilEntrenador).filter(PerfilEntrenador.usuario_id == current_user.id).first()
     if not perfil:
         perfil = PerfilEntrenador(usuario_id=current_user.id)

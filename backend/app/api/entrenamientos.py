@@ -1,16 +1,22 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Optional, List
-from datetime import date, datetime
+from datetime import date, datetime, time
 from pydantic import BaseModel
 
 from app.db.database import get_db
 from app.models.models import (
-    Entrenamiento, EntrenamientoEjercicio, Ejercicio, Usuario,
+    CoachAssignment, Entrenamiento, EntrenamientoEjercicio, Ejercicio,
+    PerfilEntrenador, Usuario,
     EjercicioImagen
 )
 from app.api.auth import get_current_user
 from app.services.season_context import active_season_id, selected_season_id
+from app.services.permissions import (
+    can_view_exercise,
+    get_visible_exercise,
+    require_onboarded_trainer,
+)
 
 router = APIRouter(prefix="/api/entrenamientos", tags=["Entrenamientos"])
 
@@ -19,6 +25,7 @@ router = APIRouter(prefix="/api/entrenamientos", tags=["Entrenamientos"])
 
 class EntrenamientoCreate(BaseModel):
     fecha: date
+    hora: Optional[time] = None
     nombre: str
     duracion_minutos: Optional[int] = None
     objetivo_principal: Optional[str] = None
@@ -29,6 +36,7 @@ class EntrenamientoCreate(BaseModel):
 
 class EntrenamientoUpdate(BaseModel):
     fecha: Optional[date] = None
+    hora: Optional[time] = None
     nombre: Optional[str] = None
     duracion_minutos: Optional[int] = None
     objetivo_principal: Optional[str] = None
@@ -56,11 +64,14 @@ class EntrenamientoListOut(BaseModel):
     id: int
     temporada_id: int
     fecha: date
+    hora: Optional[time]
     nombre: str
     duracion_minutos: Optional[int]
     objetivo_principal: Optional[str]
     num_ejercicios: int = 0
     created_at: Optional[datetime]
+    entrenador: Optional[str] = None
+    categoria: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -68,6 +79,7 @@ class EntrenamientoListOut(BaseModel):
 class EntrenamientoDetailOut(BaseModel):
     id: int
     fecha: date
+    hora: Optional[time]
     nombre: str
     duracion_minutos: Optional[int]
     objetivo_principal: Optional[str]
@@ -92,6 +104,7 @@ class ReordenarItem(BaseModel):
 
 class ReutilizarIn(BaseModel):
     fecha: date
+    hora: Optional[time] = None
     nombre: Optional[str] = None
     duracion_minutos: Optional[int] = None
     objetivo_principal: Optional[str] = None
@@ -153,16 +166,31 @@ def list_entrenamientos(
         .all()
     )
     result = []
+    profile = db.query(PerfilEntrenador).filter(
+        PerfilEntrenador.usuario_id == current_user.id,
+    ).one_or_none()
+    trainer_name = (
+        f"{profile.nombre} {profile.apellidos}".strip()
+        if profile else current_user.usuario
+    )
     for e in entrenamientos:
+        assignment = db.query(CoachAssignment).filter(
+            CoachAssignment.coach_user_id == current_user.id,
+            CoachAssignment.temporada_id == e.temporada_id,
+            CoachAssignment.active.is_(True),
+        ).order_by(CoachAssignment.id.desc()).first()
         result.append(EntrenamientoListOut(
             id=e.id,
             temporada_id=e.temporada_id,
             fecha=e.fecha,
+            hora=e.hora,
             nombre=e.nombre,
             duracion_minutos=e.duracion_minutos,
             objetivo_principal=e.objetivo_principal,
             num_ejercicios=len(e.ejercicios_rel),
             created_at=e.created_at,
+            entrenador=trainer_name,
+            categoria=assignment.category.nombre if assignment else None,
         ))
     return result
 
@@ -178,6 +206,7 @@ def get_entrenamiento(
     return EntrenamientoDetailOut(
         id=e.id,
         fecha=e.fecha,
+        hora=e.hora,
         nombre=e.nombre,
         duracion_minutos=e.duracion_minutos,
         objetivo_principal=e.objetivo_principal,
@@ -195,12 +224,18 @@ def create_entrenamiento(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    require_onboarded_trainer(db, current_user)
+    if data.fecha < date.today():
+        raise HTTPException(
+            status_code=422,
+            detail="No puedes crear un entrenamiento en una fecha pasada.",
+        )
     season_id = active_season_id(db, current_user.id)
     e = Entrenamiento(
         usuario_id=current_user.id,
         temporada_id=season_id,
         fecha=data.fecha,
-        hora=None,
+        hora=data.hora,
         nombre=data.nombre,
         duracion_minutos=data.duracion_minutos,
         objetivo_principal=data.objetivo_principal,
@@ -210,7 +245,7 @@ def create_entrenamiento(
     db.commit()
     db.refresh(e)
     return EntrenamientoDetailOut(
-        id=e.id, fecha=e.fecha, nombre=e.nombre,
+        id=e.id, fecha=e.fecha, hora=e.hora, nombre=e.nombre,
         duracion_minutos=e.duracion_minutos,
         objetivo_principal=e.objetivo_principal,
         observaciones=e.observaciones,
@@ -226,9 +261,11 @@ def update_entrenamiento(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    require_onboarded_trainer(db, current_user)
     e = db.query(Entrenamiento).filter(Entrenamiento.id == id).first()
     _check_ownership(e, current_user.id)
     if data.fecha is not None: e.fecha = data.fecha
+    if "hora" in data.model_fields_set: e.hora = data.hora
     if data.nombre is not None: e.nombre = data.nombre
     if data.duracion_minutos is not None: e.duracion_minutos = data.duracion_minutos
     if data.objetivo_principal is not None: e.objetivo_principal = data.objetivo_principal
@@ -236,7 +273,7 @@ def update_entrenamiento(
     db.commit()
     db.refresh(e)
     return EntrenamientoDetailOut(
-        id=e.id, fecha=e.fecha, nombre=e.nombre,
+        id=e.id, fecha=e.fecha, hora=e.hora, nombre=e.nombre,
         duracion_minutos=e.duracion_minutos,
         objetivo_principal=e.objetivo_principal,
         observaciones=e.observaciones,
@@ -252,6 +289,7 @@ def delete_entrenamiento(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    require_onboarded_trainer(db, current_user)
     e = db.query(Entrenamiento).filter(Entrenamiento.id == id).first()
     _check_ownership(e, current_user.id)
     db.delete(e)
@@ -266,6 +304,12 @@ def reutilizar_entrenamiento(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    require_onboarded_trainer(db, current_user)
+    if data.fecha < date.today():
+        raise HTTPException(
+            status_code=422,
+            detail="No puedes crear un entrenamiento en una fecha pasada.",
+        )
     original = db.query(Entrenamiento).filter(Entrenamiento.id == id).first()
     _check_ownership(original, current_user.id)
     destination_season_id = active_season_id(db, current_user.id)
@@ -274,7 +318,7 @@ def reutilizar_entrenamiento(
         usuario_id=current_user.id,
         temporada_id=destination_season_id,
         fecha=data.fecha,
-        hora=None,
+        hora=data.hora if "hora" in data.model_fields_set else original.hora,
         nombre=data.nombre if data.nombre is not None else original.nombre,
         duracion_minutos=data.duracion_minutos if data.duracion_minutos is not None else original.duracion_minutos,
         objetivo_principal=data.objetivo_principal if data.objetivo_principal is not None else original.objetivo_principal,
@@ -284,6 +328,8 @@ def reutilizar_entrenamiento(
     db.flush()  # obtener copia.id
 
     for rel in original.ejercicios_rel:
+        if not can_view_exercise(db, current_user, rel.ejercicio):
+            continue
         nuevo_rel = EntrenamientoEjercicio(
             entrenamiento_id=copia.id,
             ejercicio_id=rel.ejercicio_id,
@@ -294,7 +340,7 @@ def reutilizar_entrenamiento(
     db.commit()
     db.refresh(copia)
     return EntrenamientoDetailOut(
-        id=copia.id, fecha=copia.fecha, nombre=copia.nombre,
+        id=copia.id, fecha=copia.fecha, hora=copia.hora, nombre=copia.nombre,
         duracion_minutos=copia.duracion_minutos,
         objetivo_principal=copia.objetivo_principal,
         observaciones=copia.observaciones,
@@ -313,12 +359,11 @@ def add_ejercicio(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    require_onboarded_trainer(db, current_user)
     e = db.query(Entrenamiento).filter(Entrenamiento.id == id).first()
     _check_ownership(e, current_user.id)
 
-    ejercicio = db.query(Ejercicio).filter(Ejercicio.id == data.ejercicio_id).first()
-    if not ejercicio:
-        raise HTTPException(status_code=404, detail="Ejercicio no encontrado")
+    ejercicio = get_visible_exercise(db, current_user, data.ejercicio_id)
 
     orden = data.orden
     if orden is None:
@@ -356,6 +401,7 @@ def remove_ejercicio(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    require_onboarded_trainer(db, current_user)
     e = db.query(Entrenamiento).filter(Entrenamiento.id == id).first()
     _check_ownership(e, current_user.id)
 
@@ -377,6 +423,7 @@ def reordenar_ejercicios(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    require_onboarded_trainer(db, current_user)
     e = db.query(Entrenamiento).filter(Entrenamiento.id == id).first()
     _check_ownership(e, current_user.id)
 

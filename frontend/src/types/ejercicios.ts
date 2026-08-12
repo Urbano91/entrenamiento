@@ -43,6 +43,11 @@ export interface EjercicioList {
     objetivo_1_normalizado?: string;
     tiene_portada: boolean;
     tiene_animacion: boolean;
+    is_official: boolean;
+    can_edit: boolean;
+    created_by_user_id?: number;
+    creator_display?: string;
+    assignment_context?: string;
 }
 
 export interface EjercicioDetail extends EjercicioList {
@@ -71,16 +76,60 @@ export interface PaginatedEjercicios {
     page_size: number;
     total: number;
     total_pages: number;
+    official_total: number;
+    my_total: number;
 }
 
 export interface ExerciseFilters {
-    [key: string]: string | number | boolean | null | undefined;
+    [key: string]: string | number | boolean | number[] | null | undefined;
     page: number;
     page_size: number;
     q?: string;
     tipo?: string;
     jugadores?: string;
+    categoria_v2_id?: number;
+    objetivo_v2_ids?: number[];
+    // Compatibilidad con consumidores que todavía envíen un único ID V2.
+    objetivo_v2_id?: number;
+    // Compatibilidad con consumidores que todavía utilicen el filtro histórico.
     objetivo?: string;
     espacio?: string;
     tiempo?: string;
+    scope?: 'official' | 'private';
+}
+
+export interface EjercicioDraft {
+    nombre: string;
+    descripcion?: string;
+    tipo_tarea_id: number;
+    jugadores: number;
+    espacio_id: number;
+    tiempo_id: number;
+    categoria_objetivo_id: number;
+    objetivo_ids: number[];
+    materiales: string[];
+}
+
+export interface SimilarExerciseCandidate {
+    exercise_id?: number | null;
+    name?: string | null;
+    similarity: number | null;
+    objectives: string[];
+    description?: string | null;
+    material: string[];
+    players: number | null;
+    space: string | null;
+    duration: string | null;
+    details_visible: boolean;
+    private_match: boolean;
+}
+
+export interface SimilarExercisesResponse {
+    candidates: SimilarExerciseCandidate[];
+}
+
+export interface EjercicioCreateResponse {
+    exercise: EjercicioDetail;
+    relation_type?: 'VARIANTE_DE';
+    related_exercise_id?: number;
 }

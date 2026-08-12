@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowUpRight, CirclePlay, Flag, ImageIcon, Scaling, Timer, Users } from 'lucide-react';
-import { api } from '../services/api';
+import { ArrowUpRight, CirclePlay, ImageIcon, Scaling, Timer, Users } from 'lucide-react';
+import { api, exerciseCoverUrl, imageUrl } from '../services/api';
 import { EjercicioDetail, EjercicioList } from '../types/ejercicios';
 import { Badge } from './ui';
 
@@ -30,24 +30,23 @@ export const ExerciseCard: React.FC<CardProps> = ({ ejercicio, onClick }) => {
         <button
             type="button"
             onClick={onClick}
-            className="group flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-panel transition hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-lg"
+            className="group flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-panel"
         >
-            <div className="relative h-40 w-full overflow-hidden bg-primary-950">
+            <div className="relative h-36 w-full overflow-hidden bg-primary-950 sm:h-40">
                 {ejercicio.tiene_portada ? (
                     <img
-                        src={`http://localhost:8000/api/ejercicios/${ejercicio.id}/portada`}
+                        src={exerciseCoverUrl(ejercicio.id)}
                         alt={`Representación táctica de ${ejercicio.nombre}`}
                         className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
                     />
                 ) : imageId ? (
-                    <img src={`http://localhost:8000/api/imagenes/${imageId}`} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" />
+                    <img src={imageUrl(imageId)} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" />
                 ) : (
                     <div className="flex h-full flex-col items-center justify-center bg-gradient-to-br from-primary-900 to-primary-700 text-primary-200">
                         <ImageIcon className="h-8 w-8" />
                         <span className="mt-2 text-xs font-semibold">Ficha de ejercicio</span>
                     </div>
                 )}
-                <span className="absolute left-3 top-3 rounded-lg bg-slate-950/80 px-2 py-1 font-mono text-xs font-bold text-white backdrop-blur">{ejercicio.codigo}</span>
                 <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg bg-white text-primary-800 shadow-sm"><ArrowUpRight className="h-4 w-4" /></span>
                 {ejercicio.tiene_animacion && (
                     <span className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-lg bg-primary-950/90 px-2.5 py-1.5 text-xs font-bold text-white shadow-sm backdrop-blur">
@@ -56,15 +55,14 @@ export const ExerciseCard: React.FC<CardProps> = ({ ejercicio, onClick }) => {
                 )}
             </div>
 
-            <div className="flex flex-1 flex-col p-4">
-                <Badge tone="green" className="w-fit">{ejercicio.tipo.nombre}</Badge>
-                <h3 className="mt-3 line-clamp-2 text-base font-bold leading-6 text-slate-950 group-hover:text-primary-800">{ejercicio.nombre}</h3>
+            <div className="flex flex-1 flex-col p-3 sm:p-4">
+                <Badge tone="green" className="max-w-full w-fit break-words">{ejercicio.tipo.nombre}</Badge>
+                <h3 className="mt-2 break-words text-base font-bold leading-5 text-slate-950 [overflow-wrap:anywhere] group-hover:text-primary-800">{ejercicio.nombre}</h3>
 
-                <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-100 pt-4 text-xs font-medium text-slate-600">
-                    <span className="flex items-center gap-1.5"><Users className="h-4 w-4 text-slate-400" />{ejercicio.jugadores} jug.</span>
-                    <span className="flex min-w-0 items-center gap-1.5"><Scaling className="h-4 w-4 shrink-0 text-slate-400" /><span className="truncate">{ejercicio.espacio.descripcion_original}</span></span>
-                    <span className="flex min-w-0 items-center gap-1.5"><Timer className="h-4 w-4 shrink-0 text-slate-400" /><span className="truncate">{ejercicio.tiempo.descripcion_original}</span></span>
-                    {ejercicio.objetivo_1_normalizado && <span className="flex min-w-0 items-center gap-1.5"><Flag className="h-4 w-4 shrink-0 text-slate-400" /><span className="truncate">{ejercicio.objetivo_1_normalizado}</span></span>}
+                <div className="mt-3 grid grid-cols-2 gap-x-2 gap-y-1.5 border-t border-slate-100 pt-3 text-xs font-normal leading-5 text-slate-600">
+                    <span className="order-1 flex min-w-0 items-start gap-1.5"><Users className="h-4 w-4 shrink-0 text-slate-400" /><span className="break-words [overflow-wrap:anywhere]">{ejercicio.jugadores} jug.</span></span>
+                    <span className="order-3 col-span-2 flex min-w-0 items-start gap-1.5"><Scaling className="h-4 w-4 shrink-0 text-slate-400" /><span className="break-words [overflow-wrap:anywhere]">{ejercicio.espacio.descripcion_original}</span></span>
+                    <span className="order-2 flex min-w-0 items-start gap-1.5"><Timer className="h-4 w-4 shrink-0 text-slate-400" /><span className="break-words [overflow-wrap:anywhere]">{ejercicio.tiempo.descripcion_original}</span></span>
                 </div>
             </div>
         </button>

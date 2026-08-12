@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, LinkProps } from 'react-router-dom';
-import { LucideIcon } from 'lucide-react';
+import { LucideIcon, X } from 'lucide-react';
+import { useModalBehavior } from './useModalBehavior';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type Size = 'sm' | 'md';
@@ -13,7 +14,7 @@ const variantClasses: Record<Variant, string> = {
 };
 
 const sizeClasses: Record<Size, string> = {
-    sm: 'min-h-9 px-3 py-1.5 text-sm',
+    sm: 'min-h-11 px-3 py-1.5 text-sm',
     md: 'min-h-11 px-4 py-2.5 text-sm',
 };
 
@@ -46,11 +47,11 @@ interface PageHeaderProps {
 }
 
 export const PageHeader: React.FC<PageHeaderProps> = ({ eyebrow, title, description, actions }) => (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            {eyebrow && <p className="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-primary-700">{eyebrow}</p>}
-            <h1 className="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{title}</h1>
-            {description && <p className="mt-1.5 max-w-2xl text-sm leading-6 text-slate-600">{description}</p>}
+            {eyebrow && <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-primary-700">{eyebrow}</p>}
+            <h1 className="text-[22px] font-bold leading-tight tracking-tight text-slate-950 sm:text-[28px]">{title}</h1>
+            {description && <p className="mt-1 max-w-2xl text-sm leading-5 text-slate-600">{description}</p>}
         </div>
         {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
     </div>
@@ -72,7 +73,7 @@ const badgeClasses = {
 };
 
 export const Badge: React.FC<BadgeProps> = ({ tone = 'slate', className = '', ...props }) => (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${badgeClasses[tone]} ${className}`} {...props} />
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${badgeClasses[tone]} ${className}`} {...props} />
 );
 
 interface EmptyStateProps {
@@ -83,13 +84,13 @@ interface EmptyStateProps {
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({ icon: Icon, title, description, action }) => (
-    <div className="flex flex-col items-center px-6 py-12 text-center">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-            <Icon className="h-6 w-6" />
+    <div className="flex flex-col items-center px-5 py-9 text-center sm:py-10">
+        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+            <Icon className="h-5 w-5" />
         </div>
         <h3 className="font-semibold text-slate-900">{title}</h3>
         <p className="mt-1 max-w-sm text-sm leading-6 text-slate-600">{description}</p>
-        {action && <div className="mt-5">{action}</div>}
+        {action && <div className="mt-4">{action}</div>}
     </div>
 );
 
@@ -104,21 +105,42 @@ interface ModalProps {
 
 const modalWidths = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-2xl', xl: 'max-w-5xl' };
 
-export const Modal: React.FC<ModalProps> = ({ title, description, children, footer, onClose, size = 'md' }) => (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" onMouseDown={onClose}>
-        <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={title}
-            className={`flex max-h-[92vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ${modalWidths[size]}`}
-            onMouseDown={event => event.stopPropagation()}
-        >
-            <div className="border-b border-slate-200 px-6 py-5">
-                <h2 className="text-lg font-bold text-slate-950">{title}</h2>
-                {description && <p className="mt-1 text-sm text-slate-600">{description}</p>}
-            </div>
-            <div className="overflow-y-auto p-6">{children}</div>
-            {footer && <div className="border-t border-slate-200 bg-slate-50 px-6 py-4">{footer}</div>}
+const ModalHeader: React.FC<Pick<ModalProps, 'title' | 'description' | 'onClose'>> = ({ title, description, onClose }) => (
+    <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5 sm:py-4">
+        <div className="min-w-0">
+            <h2 className="break-words text-lg font-bold text-slate-950">{title}</h2>
+            {description && <p className="mt-1 break-words text-sm text-slate-600">{description}</p>}
         </div>
+        <button
+            type="button"
+            onClick={onClose}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950"
+            aria-label="Cerrar"
+        >
+            <X className="h-5 w-5" aria-hidden="true" />
+        </button>
     </div>
 );
+
+export const Modal: React.FC<ModalProps> = ({ title, description, children, footer, onClose, size = 'md' }) => {
+    useModalBehavior(onClose);
+
+    return (
+        <div
+            className="fixed inset-0 z-[60] flex items-center justify-center overflow-x-hidden bg-slate-950/60 p-3 backdrop-blur-sm sm:p-4"
+            onClick={event => { if (event.target === event.currentTarget) onClose(); }}
+        >
+            <div
+                role="dialog"
+                aria-modal="true"
+                aria-label={title}
+                className={`flex max-h-[calc(100dvh-1.5rem)] min-w-0 w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[92dvh] ${modalWidths[size]}`}
+                onClick={event => event.stopPropagation()}
+            >
+                <ModalHeader title={title} description={description} onClose={onClose} />
+                <div className="min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain p-4 sm:p-5">{children}</div>
+                {footer && <div className="min-w-0 shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">{footer}</div>}
+            </div>
+        </div>
+    );
+};

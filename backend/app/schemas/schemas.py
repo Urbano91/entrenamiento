@@ -1,5 +1,5 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal, Optional, List
 from datetime import date, datetime
 
 class UsuarioBase(BaseModel):
@@ -8,6 +8,15 @@ class UsuarioBase(BaseModel):
 class UsuarioCreate(UsuarioBase):
     password: str
 
+
+class UsuarioRegister(UsuarioBase):
+    password: str = Field(min_length=8)
+
+
+class ClubRegister(UsuarioRegister):
+    nombre_club: str = Field(min_length=1, max_length=180)
+
+
 class UsuarioLogin(BaseModel):
     usuario: str
     password: str
@@ -15,7 +24,20 @@ class UsuarioLogin(BaseModel):
 class UsuarioOut(UsuarioBase):
     id: int
     activo: bool
+    account_type: Literal["ADMIN", "ENTRENADOR", "CLUB"]
+    must_change_password: bool
+    onboarding_complete: bool
     model_config = ConfigDict(from_attributes=True)
+
+
+class OnboardingComplete(BaseModel):
+    nombre: str = Field(min_length=1, max_length=120)
+    apellidos: str = Field(min_length=1, max_length=180)
+    password: str = Field(min_length=8)
+
+
+class ProvisionalPasswordChange(BaseModel):
+    password: str = Field(min_length=8)
 
 class TipoTareaOut(BaseModel):
     id: int
@@ -36,6 +58,35 @@ class ObjetivoOut(BaseModel):
     id: int
     nombre_normalizado: str
     model_config = ConfigDict(from_attributes=True)
+
+
+class CategoriaObjetivoV2Out(BaseModel):
+    id: int
+    codigo: str
+    nombre: str
+    orden: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ObjetivoNormalizadoV2Out(BaseModel):
+    id: int
+    nombre: str
+    categoria_id: int
+    categoria_codigo: str
+    categoria_nombre: str
+    orden: int
+
+
+class ObjetivoV2TrazabilidadOut(BaseModel):
+    objetivo_id: int
+    objetivo_nombre: str
+    categoria_id: int
+    categoria_codigo: str
+    categoria_nombre: str
+    objetivo_origen_id: Optional[int]
+    objetivo_original: Optional[str]
+    rol_historico: str
+    alcance: str
 
 class EjercicioObjetivoOut(BaseModel):
     tipo_objetivo: str
@@ -78,6 +129,11 @@ class EjercicioListOut(BaseModel):
     objetivo_1_normalizado: Optional[str] = None
     tiene_portada: bool = False
     tiene_animacion: bool = False
+    is_official: bool = True
+    can_edit: bool = False
+    created_by_user_id: Optional[int] = None
+    creator_display: Optional[str] = None
+    assignment_context: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class EjercicioDetailOut(EjercicioListOut):
@@ -96,3 +152,49 @@ class PaginatedEjercicios(BaseModel):
     page_size: int
     total: int
     total_pages: int
+    official_total: int = 0
+    my_total: int = 0
+
+
+class EjercicioDraft(BaseModel):
+    nombre: str = Field(min_length=1, max_length=255)
+    descripcion: Optional[str] = None
+    tipo_tarea_id: int
+    jugadores: int = Field(ge=1)
+    espacio_id: int
+    tiempo_id: int
+    categoria_objetivo_id: int
+    objetivo_ids: List[int] = Field(min_length=1)
+    materiales: List[str] = Field(default_factory=list)
+
+
+class SimilarExerciseCandidate(BaseModel):
+    exercise_id: Optional[int] = None
+    name: Optional[str] = None
+    similarity: Optional[float] = None
+    objectives: List[str] = Field(default_factory=list)
+    description: Optional[str] = None
+    material: List[str] = Field(default_factory=list)
+    players: Optional[int] = None
+    space: Optional[str] = None
+    duration: Optional[str] = None
+    details_visible: bool = True
+    private_match: bool = False
+
+
+class SimilarExercisesOut(BaseModel):
+    candidates: List[SimilarExerciseCandidate]
+
+
+class EjercicioCreate(EjercicioDraft):
+    variant_of_id: Optional[int] = None
+
+
+class EjercicioUpdate(EjercicioDraft):
+    pass
+
+
+class EjercicioCreateOut(BaseModel):
+    exercise: EjercicioDetailOut
+    relation_type: Optional[str] = None
+    related_exercise_id: Optional[int] = None

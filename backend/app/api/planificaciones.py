@@ -22,6 +22,7 @@ from app.models.models import (
 from app.services.season_context import selected_season_id
 from app.services.document_validation import MAX_DOCUMENT_BYTES, validate_document
 from app.services.storage import StorageService, get_storage_service
+from app.services.permissions import require_onboarded_trainer
 
 
 router = APIRouter(prefix="/api/planificaciones", tags=["Planificación diaria"])
@@ -112,6 +113,7 @@ def get_agenda(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    require_onboarded_trainer(db, current_user)
     season_id = selected_season_id(db, current_user.id, temporada_id)
     training_dates = {
         row[0] for row in db.query(Entrenamiento.fecha).filter(
@@ -187,6 +189,7 @@ def save_note(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    require_onboarded_trainer(db, current_user)
     season_id = selected_season_id(db, current_user.id, temporada_id)
     plan = _get_or_create_plan(db, current_user.id, season_id, planning_date)
     plan.nota = data.contenido.strip() or None
@@ -205,6 +208,7 @@ def delete_note(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    require_onboarded_trainer(db, current_user)
     season_id = selected_season_id(db, current_user.id, temporada_id)
     plan = _get_plan(db, current_user.id, season_id, planning_date)
     if plan:
@@ -244,6 +248,7 @@ async def upload_document(
     db: Session = Depends(get_db),
     storage: StorageService = Depends(get_storage_service),
 ):
+    require_onboarded_trainer(db, current_user)
     season_id = selected_season_id(db, current_user.id, temporada_id)
     content = await archivo.read(MAX_DOCUMENT_BYTES + 1)
     original_name, canonical_mime = validate_document(
@@ -326,6 +331,7 @@ def delete_document(
     db: Session = Depends(get_db),
     storage: StorageService = Depends(get_storage_service),
 ):
+    require_onboarded_trainer(db, current_user)
     document = _owned_document(db, document_id, current_user.id)
     storage.delete(document.storage_key)
     db.delete(document)

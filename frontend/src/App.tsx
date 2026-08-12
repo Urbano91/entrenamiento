@@ -14,6 +14,9 @@ import { Calendario } from './pages/Calendario';
 import { MisEntrenamientos } from './pages/MisEntrenamientos';
 import { EntrenamientoForm } from './pages/EntrenamientoForm';
 import { DetalleEntrenamiento } from './pages/DetalleEntrenamiento';
+import { ClubDashboard } from './pages/ClubDashboard';
+import { AdminDashboard } from './pages/AdminDashboard';
+import { FirstAccess } from './pages/FirstAccess';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -33,16 +36,42 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const TrainerOnly = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+  if (user?.account_type !== 'ENTRENADOR') return <Navigate to={user?.account_type === 'ADMIN' ? '/admin' : '/club'} replace />;
+  return <>{children}</>;
+};
+
+const ClubOnly = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+  if (user?.account_type !== 'CLUB') return <Navigate to={user?.account_type === 'ADMIN' ? '/admin' : '/dashboard'} replace />;
+  if (user.must_change_password) return <Navigate to="/first-access" replace />;
+  return <>{children}</>;
+};
+
+const AdminOnly = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+  if (user?.account_type !== 'ADMIN') return <Navigate to={user?.account_type === 'CLUB' ? '/club' : '/dashboard'} replace />;
+  if (user.must_change_password) return <Navigate to="/first-access" replace />;
+  return <>{children}</>;
+};
+
 const ProfileRequiredRoute: React.FC = () => {
+  const { user } = useAuth();
   const [status, setStatus] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading');
 
   useEffect(() => {
+    if (user?.account_type !== 'ENTRENADOR' || user.must_change_password || !user.onboarding_complete) return;
     api.get<Perfil>('/perfil')
       .then(() => setStatus('ready'))
       .catch((error: unknown) => {
         setStatus(error instanceof ApiError && error.status === 404 ? 'missing' : 'error');
       });
-  }, []);
+  }, [user]);
+
+  if (user?.account_type === 'CLUB') return <Navigate to="/club" replace />;
+  if (user?.account_type === 'ADMIN') return <Navigate to="/admin" replace />;
+  if (user?.must_change_password || !user?.onboarding_complete) return <Navigate to="/onboarding" replace />;
 
   if (status === 'loading') {
     return (
@@ -98,9 +127,13 @@ const App: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/perfil" element={
             <ProtectedRoute>
-              <PerfilPage />
+              <TrainerOnly><PerfilPage /></TrainerOnly>
             </ProtectedRoute>
           } />
+          <Route path="/onboarding" element={<ProtectedRoute><TrainerOnly><PerfilForm isSetup /></TrainerOnly></ProtectedRoute>} />
+          <Route path="/first-access" element={<ProtectedRoute><FirstAccess /></ProtectedRoute>} />
+          <Route path="/club" element={<ProtectedRoute><ClubOnly><ClubDashboard /></ClubOnly></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><AdminOnly><AdminDashboard /></AdminOnly></ProtectedRoute>} />
           <Route element={<ProtectedRoute><ProfileRequiredRoute /></ProtectedRoute>}>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />

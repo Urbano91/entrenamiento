@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.api.auth import get_current_user
 from app.db.database import get_db
-from app.models.models import Entrenamiento, Partido, Usuario
+from app.models.models import Entrenamiento, Partido, PlanificacionDiaria, Usuario
 from app.services.season_context import selected_season_id
 
 
@@ -18,6 +18,7 @@ def _training_payload(training: Entrenamiento) -> dict:
     return {
         "id": training.id,
         "nombre": training.nombre,
+        "hora": training.hora.isoformat(timespec="minutes") if training.hora else None,
         "duracion_minutos": training.duracion_minutos,
         "num_ejercicios": len(training.ejercicios_rel),
         "objetivo_principal": training.objetivo_principal,
@@ -73,6 +74,16 @@ def get_calendario(
         )
         .all()
     )
+    daily_plans = (
+        db.query(PlanificacionDiaria)
+        .filter(
+            PlanificacionDiaria.usuario_id == current_user.id,
+            PlanificacionDiaria.temporada_id == season_id,
+            PlanificacionDiaria.fecha >= fecha_inicio,
+            PlanificacionDiaria.fecha <= fecha_fin,
+        )
+        .all()
+    )
 
     # ``dias`` conserva el contrato de Fase 2. ``planificacion`` es el contrato
     # de Fase 3 y agrupa la representación por fecha sin fusionar registros.
@@ -87,10 +98,13 @@ def get_calendario(
     for match in partidos:
         match_groups.setdefault(match.fecha.isoformat(), []).append(match)
 
-    for key in sorted(set(training_groups) | set(match_groups)):
+    plan_by_date = {item.fecha.isoformat(): item for item in daily_plans}
+
+    for key in sorted(set(training_groups) | set(match_groups) | set(plan_by_date)):
         daily_trainings = sorted(
             training_groups.get(key, []),
             key=lambda item: (
+                item.hora is None, item.hora or time.max,
                 item.created_at.isoformat() if item.created_at else "",
                 item.id,
             ),
@@ -109,6 +123,7 @@ def get_calendario(
             dias[key] = training_payloads
         planificacion[key] = {
             "fecha": key,
+            "nota": plan_by_date[key].nota if key in plan_by_date else None,
             "entrenamientos": training_payloads,
             "resumen_entrenamiento": {
                 # Las filas actuales son sesiones/secciones. Mientras no exista
