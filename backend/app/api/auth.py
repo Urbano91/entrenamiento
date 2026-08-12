@@ -117,8 +117,8 @@ def login(credentials: UsuarioLogin, response: Response, db: Session = Depends(g
         value=access_token,
         httponly=True,
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        samesite="lax",
-        secure=False  # en prod True si hay HTTPS
+        samesite="none",
+        secure=True
     )
     
     return LoginResponse(message="Sesión iniciada correctamente")
