@@ -4,7 +4,8 @@ sqlalchemy
 pydantic
 pydantic-settings
 python-multipart
-passlib[bcrypt]
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
 pytest
 httpx2
 PyJWT
