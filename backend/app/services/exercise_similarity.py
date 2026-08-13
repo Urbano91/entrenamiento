@@ -235,37 +235,98 @@ def find_similar_exercises(
     top_k: int = 5,
     exclude_exercise_id: Optional[int] = None,
 ) -> list[dict]:
-    representation = build_structured_representation(document_from_draft(db, draft))
+    representation = build_structured_representation(
+        document_from_draft(db, draft)
+    )
     query_vector = provider.embed([representation])[0]
-    exercises = db.query(Ejercicio).filter(
-        ~Ejercicio.ownership.has()
-        | Ejercicio.ownership.has(ExerciseOwnership.deleted_at.is_(None))
-    ).order_by(Ejercicio.id).all()
-    candidates: dict[int, dict] = {}
-    for exercise in exercises:
-        if exercise.id == exclude_exercise_id:
+
+    embedding_rows = (
+        db.query(ExerciseEmbedding)
+        .filter(
+            ExerciseEmbedding.provider == provider.provider_name,
+            ExerciseEmbedding.model == provider.model_name,
+        )
+        .all()
+    )
+
+    if not embedding_rows:
+        return []
+
+    exercise_ids = [
+        row.ejercicio_id
+        for row in embedding_rows
+        if row.ejercicio_id != exclude_exercise_id
+    ]
+
+    if not exercise_ids:
+        return []
+
+    exercises = (
+        db.query(Ejercicio)
+        .filter(Ejercicio.id.in_(exercise_ids))
+        .all()
+    )
+
+    exercises_by_id = {
+        exercise.id: exercise
+        for exercise in exercises
+    }
+
+    candidates = []
+
+    for stored in embedding_rows:
+        if stored.ejercicio_id == exclude_exercise_id:
             continue
-        stored, _ = ensure_exercise_embedding(db, exercise, provider)
+
+        exercise = exercises_by_id.get(stored.ejercicio_id)
+        if exercise is None:
+            continue
+
+        if (
+            exercise.ownership is not None
+            and exercise.ownership.deleted_at is not None
+        ):
+            continue
+
         try:
             vector = json.loads(stored.embedding)
         except (TypeError, json.JSONDecodeError):
             continue
+
+        candidates.append(
+            {
+                "exercise_id": exercise.id,
+                "name": exercise.nombre,
+                "similarity": cosine_similarity(query_vector, vector),
+                "owner_user_id": (
+                    exercise.ownership.created_by_user_id
+                    if exercise.ownership
+                    else None
+                ),
+            }
+        )
+
+    candidates.sort(
+        key=lambda row: (-row["similarity"], row["exercise_id"])
+    )
+
+    results = []
+
+    for candidate in candidates[:top_k]:
+        exercise = exercises_by_id[candidate["exercise_id"]]
         document = document_from_exercise(db, exercise)
-        candidates[exercise.id] = {
-            "exercise_id": exercise.id,
-            "name": exercise.nombre,
-            "similarity": cosine_similarity(query_vector, vector),
-            "objectives": list(document.objectives),
-            "description": (document.description or "")[:240] or None,
-            "material": list(document.material),
-            "players": exercise.jugadores,
-            "space": document.space or "",
-            "duration": document.duration or "",
-            "owner_user_id": (
-                exercise.ownership.created_by_user_id if exercise.ownership else None
-            ),
-        }
-    db.commit()
-    return sorted(
-        candidates.values(), key=lambda row: (-row["similarity"], row["exercise_id"])
-    )[:top_k]
+
+        candidate.update(
+            {
+                "objectives": list(document.objectives),
+                "description": (document.description or "")[:240] or None,
+                "material": list(document.material),
+                "players": exercise.jugadores,
+                "space": document.space or "",
+                "duration": document.duration or "",
+            }
+        )
+
+        results.append(candidate)
+
+    return results
