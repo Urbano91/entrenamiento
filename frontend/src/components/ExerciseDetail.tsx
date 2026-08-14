@@ -139,7 +139,7 @@ export const ExerciseDetail: React.FC<Props> = ({ id, onClose, onEdit, onDeleted
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                         {ejercicio.can_edit && onEdit && <button type="button" onClick={() => onEdit(ejercicio)} className="flex min-h-11 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-bold text-white hover:bg-white/20"><Pencil className="h-4 w-4" />Editar</button>}
-                        {ejercicio.can_edit && onDeleted && <button type="button" disabled={deleting} onClick={deleteExercise} className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-300/40 bg-red-700/70 text-white hover:bg-red-700 disabled:opacity-60" aria-label="Eliminar ejercicio"><Trash2 className="h-5 w-5" /></button>}
+                        {ejercicio.can_edit && onDeleted && <button type="button" disabled={deleting} onClick={deleteExercise} className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-300/40 bg-red-700/70 text-white hover:bg-red-700 disabled:opacity-60" aria-label="Eliminar"><Trash2 className="h-5 w-5" /></button>}
                         <button type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20" aria-label="Cerrar">
                             <X className="h-6 w-6" aria-hidden="true" />
                         </button>

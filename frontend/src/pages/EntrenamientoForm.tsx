@@ -232,7 +232,7 @@ export const EntrenamientoForm: React.FC<Props> = ({ editId }) => {
                         </div>
                         <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
                             <div className="sm:col-span-2">
-                                <label className="field-label">Nombre del entrenamiento *</label>
+                                <label className="field-label">Nombre *</label>
                                 <input type="text" value={form.nombre} onChange={event => setForm(current => ({ ...current, nombre: event.target.value }))}
                                     className="field-control" placeholder="Ej: Presión tras pérdida" />
                             </div>
@@ -315,7 +315,7 @@ export const EntrenamientoForm: React.FC<Props> = ({ editId }) => {
                                             </div>
                                         </div>
                                         <button type="button" onClick={() => removeEjercicio(ej.ejercicio_id)}
-                                            className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800" aria-label={`Eliminar ${ej.nombre}`} title="Eliminar ejercicio">
+                                            className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800" aria-label={`Eliminar ${ej.nombre}`} title="Eliminar">
                                             <Trash2 className="h-4 w-4" />
                                         </button>
                                     </article>
@@ -363,7 +363,7 @@ export const EntrenamientoForm: React.FC<Props> = ({ editId }) => {
 
                     <div className="sticky bottom-20 z-20 flex justify-end gap-2 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-panel backdrop-blur lg:bottom-4">
                         <Button type="button" variant="secondary" onClick={() => navigate(-1)}>Cancelar</Button>
-                        <Button type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Guardando…' : 'Guardar entrenamiento'}</Button>
+                        <Button type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Guardando…' : 'Guardar'}</Button>
                     </div>
                 </form>
             </div>

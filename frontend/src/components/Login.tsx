@@ -43,7 +43,7 @@ export const Login: React.FC = () => {
                     <ShieldCheck className="h-7 w-7" />
                 </div>
                 <p className="mt-4 text-center text-sm font-bold uppercase tracking-[0.18em] text-primary-700">ScoutIA</p>
-                <h1 className="mt-1 text-center text-2xl font-bold text-slate-950">Acceso a ScoutIA</h1>
+                <h1 className="mt-1 text-center text-2xl font-bold text-slate-950"></h1>
                 <form onSubmit={submit} className="mt-6 space-y-4">
                     <div><label className="field-label">Usuario</label><input className="field-control" value={usuario} onChange={event => setUsuario(event.target.value)} autoComplete="username" autoFocus required /></div>
                     <div><label className="field-label">Contraseña</label><input type="password" className="field-control" value={password} onChange={event => setPassword(event.target.value)} autoComplete="current-password" required /></div>
@@ -53,7 +53,7 @@ export const Login: React.FC = () => {
                     </button>
                 </form>
                 <p className="mt-5 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Acceso para clubes y entrenadores
+                    
                 </p>
             </div>
         </div>

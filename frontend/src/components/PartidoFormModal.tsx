@@ -89,7 +89,7 @@ export const PartidoFormModal: React.FC<PartidoFormModalProps> = ({
                     <div className="flex gap-3">
                         <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
                         <Button type="submit" form="partido-form" disabled={saving || deleting}>
-                            <Save className="h-4 w-4" />{saving ? 'Guardando…' : 'Guardar partido'}
+                            <Save className="h-4 w-4" />{saving ? 'Guardando…' : 'Guardar'}
                         </Button>
                     </div>
                 </div>

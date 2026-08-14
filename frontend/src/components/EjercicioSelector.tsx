@@ -137,7 +137,7 @@ export const EjercicioSelector: React.FC<Props> = ({
                         <h2 className="break-words text-lg font-bold leading-6 text-slate-950 sm:mt-1 sm:text-xl">Seleccionar ejercicios</h2>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                        <Button type="button" size="sm" onClick={() => setShowCreator(true)}><Plus className="h-4 w-4" />Crear ejercicio</Button>
+                        <Button type="button" size="sm" onClick={() => setShowCreator(true)}><Plus className="h-4 w-4" />Crear</Button>
                         <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950" aria-label="Cerrar">
                             <X className="h-5 w-5" aria-hidden="true" />
                         </button>
@@ -274,7 +274,7 @@ export const EjercicioSelector: React.FC<Props> = ({
                     <span className="text-sm font-semibold text-slate-700">Ejercicios seleccionados: {draftIds.length}</span>
                     <div className="flex min-w-0 justify-end gap-2 sm:gap-3">
                         <Button type="button" variant="secondary" className="min-w-0 flex-1 sm:flex-none" onClick={onClose}>Cancelar</Button>
-                        <Button type="button" className="min-w-0 flex-1 sm:flex-none" onClick={applySelection}><Check className="h-4 w-4" />Aplicar selección</Button>
+                        <Button type="button" className="min-w-0 flex-1 sm:flex-none" onClick={applySelection}><Check className="h-4 w-4" />Aplicar</Button>
                     </div>
                 </div>
             </div>

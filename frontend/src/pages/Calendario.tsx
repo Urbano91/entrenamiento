@@ -121,11 +121,11 @@ const DayPlanning: React.FC<DayPlanningProps> = ({
                 <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-4">
                     {canCreateTraining && (
                         <ActionLink to={`/entrenamientos/nuevo?fecha=${day.fecha}`} size="sm" className="h-11">
-                            <Plus className="h-4 w-4" />Añadir entrenamiento
+                            <Plus className="h-4 w-4" />Entrenamiento
                         </ActionLink>
                     )}
                     <Button type="button" variant="secondary" size="sm" className="h-11" onClick={onAddMatch}>
-                        <Plus className="h-4 w-4" />Añadir partido
+                        <Plus className="h-4 w-4" />Partido
                     </Button>
                 </div>
             )}
