@@ -8,6 +8,7 @@ const ACTIVE_FILTER_KEYS: Array<keyof ExerciseFilters> = [
     'objetivo_v2_ids',
     'objetivo_v2_id',
     'objetivo',
+    'scope',
 ];
 
 export const countActiveExerciseFilters = (filters: ExerciseFilters) => (

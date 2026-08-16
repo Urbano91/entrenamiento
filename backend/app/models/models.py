@@ -267,6 +267,31 @@ class ExerciseOwnership(Base):
     ejercicio = relationship("Ejercicio", back_populates="ownership")
     creator = relationship("Usuario")
 
+
+class ExerciseFavorite(Base):
+    """Ejercicios guardados por un entrenador. Tabla aditiva."""
+
+    __tablename__ = "exercise_favorites"
+    __table_args__ = (
+        UniqueConstraint(
+            "ejercicio_id", "usuario_id", name="uq_exercise_favorite"
+        ),
+        Index("ix_exercise_favorites_user", "usuario_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ejercicio_id = Column(
+        Integer, ForeignKey("ejercicios.id", ondelete="CASCADE"), nullable=False
+    )
+    usuario_id = Column(
+        Integer, ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    ejercicio = relationship("Ejercicio")
+    usuario = relationship("Usuario")
+
+
 class Objetivo(Base):
     __tablename__ = "objetivos"
     id = Column(Integer, primary_key=True, autoincrement=True)

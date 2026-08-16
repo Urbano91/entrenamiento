@@ -45,6 +45,7 @@ export interface EjercicioList {
     tiene_animacion: boolean;
     is_official: boolean;
     can_edit: boolean;
+    is_favorite: boolean;
     created_by_user_id?: number;
     creator_display?: string;
     assignment_context?: string;
@@ -78,6 +79,7 @@ export interface PaginatedEjercicios {
     total_pages: number;
     official_total: number;
     my_total: number;
+    favorite_total: number;
 }
 
 export interface ExerciseFilters {
@@ -95,7 +97,7 @@ export interface ExerciseFilters {
     objetivo?: string;
     espacio?: string;
     tiempo?: string;
-    scope?: 'official' | 'private';
+    scope?: 'official' | 'private' | 'favoritos';
 }
 
 export interface EjercicioDraft {

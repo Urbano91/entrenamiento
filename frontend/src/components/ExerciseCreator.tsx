@@ -16,6 +16,7 @@ import { TaxonomyCatalog } from '../types/taxonomy';
 import { Button } from './ui';
 import { ExerciseDetail } from './ExerciseDetail';
 import { useModalBehavior } from './useModalBehavior';
+import { useToast } from '../utils/useToast';
 
 interface Props {
     exerciseId?: number;
@@ -55,6 +56,7 @@ export const ExerciseCreator: React.FC<Props> = ({ exerciseId, onClose, onExerci
     const [checking, setChecking] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const { success, error: toastError } = useToast();
     const [candidates, setCandidates] = useState<SimilarExerciseCandidate[] | null>(null);
     const [selectedCandidateId, setSelectedCandidateId] = useState<number | null>(null);
     const [previewId, setPreviewId] = useState<number | null>(null);
@@ -174,15 +176,16 @@ export const ExerciseCreator: React.FC<Props> = ({ exerciseId, onClose, onExerci
                 onExerciseReady(exercise);
                 onClose();
                 window.alert(
-                    `El ejercicio se guardó, pero no se pudo actualizar su imagen: ${
-                        imageError instanceof Error ? imageError.message : 'error desconocido'
+                    `El ejercicio se guardó, pero no se pudo actualizar su imagen: ${imageError instanceof Error ? imageError.message : 'error desconocido'
                     }`,
                 );
                 return;
             }
             onExerciseReady(exercise);
+            success(exerciseId ? 'Ejercicio actualizado con éxito' : 'Ejercicio creado con éxito');
             onClose();
         } catch (reason) {
+            toastError(reason instanceof Error ? reason.message : 'No se pudo guardar el ejercicio');
             setError(reason instanceof Error ? reason.message : 'No se pudo guardar el ejercicio');
         } finally {
             setSaving(false);
@@ -196,8 +199,10 @@ export const ExerciseCreator: React.FC<Props> = ({ exerciseId, onClose, onExerci
         try {
             const exercise = await api.get<EjercicioDetail>(`/ejercicios/${selectedCandidateId}`);
             onExerciseReady(exercise);
+            success('Ejercicio existente referenciado con éxito');
             onClose();
         } catch (reason) {
+            toastError(reason instanceof Error ? reason.message : 'No se pudo usar el ejercicio existente');
             setError(reason instanceof Error ? reason.message : 'No se pudo usar el ejercicio existente');
             setConfirmSame(false);
         } finally {
@@ -252,9 +257,9 @@ export const ExerciseCreator: React.FC<Props> = ({ exerciseId, onClose, onExerci
 
                 <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-6">
                     {candidates === null ? (
-                        <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button><Button type="button" disabled={checking || loading} onClick={checkSimilar}>{checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{checking ? 'Buscando ejercicios similares…' : 'Guardar'}</Button></div>
+                        <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button><Button type="button" loading={checking} loadingText="Buscando..." onClick={checkSimilar}><Save className="h-4 w-4" />Guardar</Button></div>
                     ) : (
-                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end"><Button type="button" variant="secondary" onClick={() => { setCandidates(null); setSelectedCandidateId(null); }}>Editar datos</Button><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>{!exerciseId && <><Button type="button" variant="secondary" disabled={!selectedCandidateId || saving} onClick={() => setConfirmSame(true)}>Usar ejercicio existente</Button><Button type="button" variant="secondary" disabled={!selectedCandidateId || saving} onClick={() => selectedCandidateId && saveExercise(selectedCandidateId)}>Guardar como variante</Button></>}<Button type="button" disabled={saving} onClick={() => saveExercise()}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}{exerciseId ? 'Guardar cambios' : 'Guardar como ejercicio nuevo'}</Button></div>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end"><Button type="button" variant="secondary" onClick={() => { setCandidates(null); setSelectedCandidateId(null); }}>Editar datos</Button><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>{!exerciseId && <><Button type="button" variant="secondary" disabled={!selectedCandidateId || saving} onClick={() => setConfirmSame(true)}>Usar ejercicio existente</Button><Button type="button" variant="secondary" disabled={!selectedCandidateId || saving} loading={saving} loadingText="Guardando..." onClick={() => selectedCandidateId && saveExercise(selectedCandidateId)}>Guardar como variante</Button></>}<Button type="button" loading={saving} loadingText="Guardando..." onClick={() => saveExercise()}><Plus className="h-4 w-4" />{exerciseId ? 'Guardar cambios' : 'Guardar como ejercicio nuevo'}</Button></div>
                     )}
                 </div>
             </div>
@@ -262,7 +267,7 @@ export const ExerciseCreator: React.FC<Props> = ({ exerciseId, onClose, onExerci
             {previewId && <ExerciseDetail id={previewId} onClose={() => setPreviewId(null)} />}
             {confirmSame && (
                 <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/70 p-4" onClick={event => { if (event.target === event.currentTarget) setConfirmSame(false); }}>
-                    <div role="alertdialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"><h3 className="text-lg font-bold text-slate-950">Has indicado que este ejercicio ya existe</h3><p className="mt-2 text-sm leading-6 text-slate-600">No se creará un duplicado. Se utilizará el ejercicio existente que has seleccionado.</p><div className="mt-5 flex justify-end gap-2"><Button type="button" variant="secondary" onClick={() => setConfirmSame(false)}>Cancelar</Button><Button type="button" disabled={saving} onClick={useExisting}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Usar ejercicio existente</Button></div></div>
+                    <div role="alertdialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"><h3 className="text-lg font-bold text-slate-950">Has indicado que este ejercicio ya existe</h3><p className="mt-2 text-sm leading-6 text-slate-600">No se creará un duplicado. Se utilizará el ejercicio existente que has seleccionado.</p><div className="mt-5 flex justify-end gap-2"><Button type="button" variant="secondary" onClick={() => setConfirmSame(false)}>Cancelar</Button><Button type="button" loading={saving} loadingText="Procesando..." onClick={useExisting}><Check className="h-4 w-4" />Usar ejercicio existente</Button></div></div>
                 </div>
             )}
         </div>

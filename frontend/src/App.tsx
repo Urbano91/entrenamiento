@@ -17,6 +17,7 @@ import { DetalleEntrenamiento } from './pages/DetalleEntrenamiento';
 import { ClubDashboard } from './pages/ClubDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { FirstAccess } from './pages/FirstAccess';
+import { ToastProvider } from './components/Toast';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -121,33 +122,35 @@ const EditarEntrenamiento: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/perfil" element={
-            <ProtectedRoute>
-              <TrainerOnly><PerfilPage /></TrainerOnly>
-            </ProtectedRoute>
-          } />
-          <Route path="/onboarding" element={<ProtectedRoute><TrainerOnly><PerfilForm isSetup /></TrainerOnly></ProtectedRoute>} />
-          <Route path="/first-access" element={<ProtectedRoute><FirstAccess /></ProtectedRoute>} />
-          <Route path="/club" element={<ProtectedRoute><ClubOnly><ClubDashboard /></ClubOnly></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute><AdminOnly><AdminDashboard /></AdminOnly></ProtectedRoute>} />
-          <Route element={<ProtectedRoute><ProfileRequiredRoute /></ProtectedRoute>}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/calendario" element={<Calendario />} />
-            <Route path="/entrenamientos" element={<MisEntrenamientos />} />
-            <Route path="/entrenamientos/nuevo" element={<EntrenamientoForm />} />
-            <Route path="/entrenamientos/:id/editar" element={<EditarEntrenamiento />} />
-            <Route path="/entrenamientos/:id" element={<DetalleEntrenamiento />} />
-            <Route path="/biblioteca" element={<Home />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/perfil" element={
+              <ProtectedRoute>
+                <TrainerOnly><PerfilPage /></TrainerOnly>
+              </ProtectedRoute>
+            } />
+            <Route path="/onboarding" element={<ProtectedRoute><TrainerOnly><PerfilForm isSetup /></TrainerOnly></ProtectedRoute>} />
+            <Route path="/first-access" element={<ProtectedRoute><FirstAccess /></ProtectedRoute>} />
+            <Route path="/club" element={<ProtectedRoute><ClubOnly><ClubDashboard /></ClubOnly></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><AdminOnly><AdminDashboard /></AdminOnly></ProtectedRoute>} />
+            <Route element={<ProtectedRoute><ProfileRequiredRoute /></ProtectedRoute>}>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/calendario" element={<Calendario />} />
+              <Route path="/entrenamientos" element={<MisEntrenamientos />} />
+              <Route path="/entrenamientos/nuevo" element={<EntrenamientoForm />} />
+              <Route path="/entrenamientos/:id/editar" element={<EditarEntrenamiento />} />
+              <Route path="/entrenamientos/:id" element={<DetalleEntrenamiento />} />
+              <Route path="/biblioteca" element={<Home />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </ToastProvider>
   );
 };
 

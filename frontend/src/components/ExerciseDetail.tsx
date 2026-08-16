@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api, exerciseAnimationUrl, exerciseCoverUrl, imageUrl } from '../services/api';
-import { X, Loader2, CirclePlay, Pencil, Trash2 } from 'lucide-react';
+import { X, Loader2, CirclePlay, Pencil, Trash2, Heart } from 'lucide-react';
 import { EjercicioDetail } from '../types/ejercicios';
 import { ObjetivoV2Trazabilidad } from '../types/taxonomy';
 import { taxonomyApi } from '../services/taxonomy';
@@ -9,6 +9,7 @@ import {
     cleanExerciseDescription,
     splitMaterialItems,
 } from '../utils/exercisePresentation';
+import { useToast } from '../utils/useToast';
 
 interface Props {
     id: number;
@@ -26,6 +27,8 @@ export const ExerciseDetail: React.FC<Props> = ({ id, onClose, onEdit, onDeleted
     const [taxonomyTrace, setTaxonomyTrace] = useState<ObjetivoV2Trazabilidad[]>([]);
     const [taxonomyError, setTaxonomyError] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [isFavorite, setIsFavorite] = useState(false);
+    const { success, error: toastError } = useToast();
 
     useModalBehavior(onClose, !error);
 
@@ -42,6 +45,7 @@ export const ExerciseDetail: React.FC<Props> = ({ id, onClose, onEdit, onDeleted
             ]);
             if (detailResult.status === 'fulfilled') {
                 setEjercicio(detailResult.value);
+                setIsFavorite(detailResult.value.is_favorite);
             } else {
                 const reason = detailResult.reason;
                 setError(reason instanceof Error ? reason.message : 'Error al cargar detalle');
@@ -111,11 +115,31 @@ export const ExerciseDetail: React.FC<Props> = ({ id, onClose, onEdit, onDeleted
         setDeleting(true);
         try {
             await api.delete(`/ejercicios/${ejercicio.id}`);
+            success('Ejercicio eliminado con éxito');
             onDeleted?.(ejercicio.id);
             onClose();
         } catch (reason) {
-            window.alert(reason instanceof Error ? reason.message : 'No se pudo eliminar el ejercicio');
+            toastError(reason instanceof Error ? reason.message : 'No se pudo eliminar el ejercicio');
             setDeleting(false);
+        }
+    };
+
+    const toggleFavorite = async (e: React.MouseEvent) => {
+        if (!ejercicio) return;
+        e.stopPropagation();
+        const prev = isFavorite;
+        setIsFavorite(!prev);
+        try {
+            if (prev) {
+                await api.delete(`/ejercicios/${ejercicio.id}/favorito`);
+                success('Eliminado de favoritos');
+            } else {
+                await api.post(`/ejercicios/${ejercicio.id}/favorito`, {});
+                success('Añadido a favoritos');
+            }
+        } catch (err) {
+            setIsFavorite(prev);
+            toastError('No se pudo actualizar favoritos');
         }
     };
 
@@ -140,6 +164,7 @@ export const ExerciseDetail: React.FC<Props> = ({ id, onClose, onEdit, onDeleted
                     <div className="flex shrink-0 items-center gap-2">
                         {ejercicio.can_edit && onEdit && <button type="button" onClick={() => onEdit(ejercicio)} className="flex min-h-11 items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3 text-sm font-bold text-white hover:bg-white/20"><Pencil className="h-4 w-4" />Editar</button>}
                         {ejercicio.can_edit && onDeleted && <button type="button" disabled={deleting} onClick={deleteExercise} className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-300/40 bg-red-700/70 text-white hover:bg-red-700 disabled:opacity-60" aria-label="Eliminar"><Trash2 className="h-5 w-5" /></button>}
+                        <button type="button" onClick={toggleFavorite} className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20 hover:scale-105 active:scale-95" aria-label={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}><Heart className={`h-5 w-5 transition-colors ${isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}`} /></button>
                         <button type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20" aria-label="Cerrar">
                             <X className="h-6 w-6" aria-hidden="true" />
                         </button>

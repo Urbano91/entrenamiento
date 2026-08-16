@@ -23,7 +23,7 @@ export const Dashboard: React.FC = () => {
     useEffect(() => {
         Promise.all([
             api.get<Perfil>('/perfil'),
-            api.get<AgendaDia[]>('/planificaciones/agenda', { desde: todayIso, limite: 4 }),
+            api.get<AgendaDia[]>('/planificaciones/agenda', { desde: todayIso, limite: 7 }),
         ]).then(([profile, upcomingDays]) => {
             setPerfil(profile);
             setAgenda(upcomingDays);

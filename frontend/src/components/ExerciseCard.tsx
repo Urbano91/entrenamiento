@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowUpRight, CirclePlay, ImageIcon, Scaling, Timer, Users } from 'lucide-react';
+import { ArrowUpRight, CirclePlay, ImageIcon, Scaling, Timer, Users, Heart } from 'lucide-react';
 import { api, exerciseCoverUrl, imageUrl } from '../services/api';
 import { EjercicioDetail, EjercicioList } from '../types/ejercicios';
 import { Badge } from './ui';
+import { useToast } from '../utils/useToast';
 
 interface CardProps {
     ejercicio: EjercicioList;
@@ -11,6 +12,10 @@ interface CardProps {
 
 export const ExerciseCard: React.FC<CardProps> = ({ ejercicio, onClick }) => {
     const [imageId, setImageId] = useState<number | null>(null);
+    const [isFavorite, setIsFavorite] = useState(ejercicio.is_favorite);
+    const { success, error } = useToast();
+
+    useEffect(() => { setIsFavorite(ejercicio.is_favorite); }, [ejercicio.is_favorite]);
 
     useEffect(() => {
         if (ejercicio.tiene_portada) {
@@ -25,6 +30,24 @@ export const ExerciseCard: React.FC<CardProps> = ({ ejercicio, onClick }) => {
             .catch(() => undefined);
         return () => { active = false; };
     }, [ejercicio.id, ejercicio.tiene_portada]);
+
+    const toggleFavorite = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const prev = isFavorite;
+        setIsFavorite(!prev);
+        try {
+            if (prev) {
+                await api.delete(`/ejercicios/${ejercicio.id}/favorito`);
+                success('Eliminado de favoritos');
+            } else {
+                await api.post(`/ejercicios/${ejercicio.id}/favorito`, {});
+                success('Añadido a favoritos');
+            }
+        } catch (err) {
+            setIsFavorite(prev);
+            error('No se pudo actualizar favoritos');
+        }
+    };
 
     return (
         <button
@@ -47,6 +70,7 @@ export const ExerciseCard: React.FC<CardProps> = ({ ejercicio, onClick }) => {
                         <span className="mt-2 text-xs font-semibold">Ficha de ejercicio</span>
                     </div>
                 )}
+                <button type="button" onClick={toggleFavorite} className="absolute right-12 top-3 flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm transition hover:scale-105 active:scale-95" aria-label={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}><Heart className={`h-4 w-4 transition-colors ${isFavorite ? 'fill-red-500 text-red-500' : 'text-slate-400 hover:text-slate-600'}`} /></button>
                 <span className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg bg-white text-primary-800 shadow-sm"><ArrowUpRight className="h-4 w-4" /></span>
                 {ejercicio.tiene_animacion && (
                     <span className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-lg bg-primary-950/90 px-2.5 py-1.5 text-xs font-bold text-white shadow-sm backdrop-blur">

@@ -13,7 +13,7 @@ from sqlalchemy import and_, func, or_
 from app.db.database import get_db
 from app.models.models import (
     CategoriaObjetivo, Ejercicio, EjercicioMaterial, EjercicioObjetivo,
-    EjercicioObjetivoV2, EjercicioImagen, Espacio, ExerciseOwnership,
+    EjercicioObjetivoV2, EjercicioImagen, Espacio, ExerciseFavorite, ExerciseOwnership,
     ExerciseRelation, Imagen, Material, Objetivo, ObjetivoNormalizadoV2,
     PerfilEntrenador, CoachAssignment, Tiempo, TipoTarea, Usuario,
 )
@@ -90,6 +90,12 @@ def mark_access_metadata(db: Session, exercise: Ejercicio, user: Usuario) -> Eje
                 f"{assignment.category.nombre} · {assignment.club.nombre} · "
                 f"{assignment.temporada.nombre}"
             )
+    # Compute is_favorite
+    favorite = db.query(ExerciseFavorite).filter(
+        ExerciseFavorite.ejercicio_id == exercise.id,
+        ExerciseFavorite.usuario_id == user.id,
+    ).first()
+    exercise.is_favorite = favorite is not None
     return mark_animation_availability(exercise)
 
 
@@ -186,7 +192,7 @@ def list_ejercicios(
     ),
     espacio: Optional[str] = None,
     tiempo: Optional[str] = None,
-    scope: Optional[str] = Query(None, pattern="^(official|private)$"),
+    scope: Optional[str] = Query(None, pattern="^(official|private|favoritos)$"),
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -198,6 +204,14 @@ def list_ejercicios(
         query = query.filter(Ejercicio.ownership.has(
             ExerciseOwnership.deleted_at.is_(None)
         ))
+    elif scope == "favoritos":
+        query = query.filter(
+            Ejercicio.id.in_(
+                db.query(ExerciseFavorite.ejercicio_id).filter(
+                    ExerciseFavorite.usuario_id == current_user.id
+                )
+            )
+        )
 
     # Buscador General
     if q:
@@ -258,6 +272,10 @@ def list_ejercicios(
         visibility,
         Ejercicio.ownership.has(ExerciseOwnership.deleted_at.is_(None)),
     ).count()
+
+    favorite_total = db.query(ExerciseFavorite).filter(
+        ExerciseFavorite.usuario_id == current_user.id
+    ).count()
     
     return {
         "items": items,
@@ -267,6 +285,7 @@ def list_ejercicios(
         "total_pages": total_pages,
         "official_total": official_total,
         "my_total": private_total,
+        "favorite_total": favorite_total,
     }
 
 
@@ -593,3 +612,35 @@ def get_ejercicio(
 ):
     ejercicio = get_visible_exercise(db, current_user, id)
     return mark_access_metadata(db, ejercicio, current_user)
+
+
+@router.post("/{id}/favorito", response_model=EjercicioDetailOut)
+def add_favorite(
+    id: int,
+    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ejercicio = get_visible_exercise(db, current_user, id)
+    existing = db.query(ExerciseFavorite).filter(
+        ExerciseFavorite.ejercicio_id == id,
+        ExerciseFavorite.usuario_id == current_user.id,
+    ).first()
+    if not existing:
+        db.add(ExerciseFavorite(ejercicio_id=id, usuario_id=current_user.id))
+        db.commit()
+    return mark_access_metadata(db, ejercicio, current_user)
+
+
+@router.delete("/{id}/favorito", status_code=204)
+def remove_favorite(
+    id: int,
+    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    get_visible_exercise(db, current_user, id)
+    db.query(ExerciseFavorite).filter(
+        ExerciseFavorite.ejercicio_id == id,
+        ExerciseFavorite.usuario_id == current_user.id,
+    ).delete(synchronize_session=False)
+    db.commit()
+    return None

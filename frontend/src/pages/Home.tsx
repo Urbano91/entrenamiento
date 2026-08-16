@@ -4,7 +4,7 @@ import { AppLayout } from '../components/AppLayout';
 import { SidebarFilters } from '../components/SidebarFilters';
 import { ExerciseCard } from '../components/ExerciseCard';
 import { ExerciseDetail } from '../components/ExerciseDetail';
-import { Loader2, ChevronLeft, ChevronRight, BookOpen, Plus, SearchX, SlidersHorizontal, UserRound } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, BookOpen, Plus, SearchX, SlidersHorizontal, UserRound, Heart } from 'lucide-react';
 import { EjercicioDetail, ExerciseFilters, PaginatedEjercicios } from '../types/ejercicios';
 import { Button, EmptyState, Modal, PageHeader, Surface } from '../components/ui';
 import { countActiveExerciseFilters } from '../utils/exerciseFilters';
@@ -40,7 +40,7 @@ export const Home: React.FC = () => {
         return () => clearTimeout(timer);
     }, [filters, refreshKey]);
 
-    const changeScope = (scope: 'official' | 'private') => {
+    const changeScope = (scope: 'official' | 'private' | 'favoritos') => {
         setFilters(current => ({ ...current, scope, page: 1 }));
     };
 
@@ -69,9 +69,10 @@ export const Home: React.FC = () => {
                 title="Biblioteca de ejercicios"
                 actions={<Button type="button" onClick={() => setCreatorOpen(true)}><Plus className="h-4 w-4" />Crear</Button>}
             />
-            <div className="mb-4 grid grid-cols-2 gap-3">
+            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <button type="button" onClick={() => changeScope('official')} className={`rounded-2xl border p-4 text-left transition ${filters.scope === 'official' ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-200' : 'border-slate-200 bg-white hover:border-primary-300'}`}><BookOpen className="h-5 w-5 text-primary-700" /><span className="mt-2 block font-bold text-slate-950">Ejercicios</span><span className="text-sm text-slate-600">{data?.official_total ?? 114}</span></button>
                 <button type="button" onClick={() => changeScope('private')} className={`rounded-2xl border p-4 text-left transition ${filters.scope === 'private' ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-200' : 'border-slate-200 bg-white hover:border-primary-300'}`}><UserRound className="h-5 w-5 text-primary-700" /><span className="mt-2 block font-bold text-slate-950">Mis ejercicios</span><span className="text-sm text-slate-600">{data?.my_total ?? 0}</span></button>
+                <button type="button" onClick={() => changeScope('favoritos')} className={`rounded-2xl border p-4 text-left transition ${filters.scope === 'favoritos' ? 'border-primary-500 bg-primary-50 ring-1 ring-primary-200' : 'border-slate-200 bg-white hover:border-primary-300'}`}><Heart className="h-5 w-5 text-primary-700" /><span className="mt-2 block font-bold text-slate-950">Favoritos</span><span className="text-sm text-slate-600">{data?.favorite_total ?? 0}</span></button>
             </div>
             <button
                 ref={mobileFiltersButtonRef}

@@ -131,6 +131,7 @@ class EjercicioListOut(BaseModel):
     tiene_animacion: bool = False
     is_official: bool = True
     can_edit: bool = False
+    is_favorite: bool = False
     created_by_user_id: Optional[int] = None
     creator_display: Optional[str] = None
     assignment_context: Optional[str] = None
@@ -154,6 +155,7 @@ class PaginatedEjercicios(BaseModel):
     total_pages: int
     official_total: int = 0
     my_total: int = 0
+    favorite_total: int = 0
 
 
 class EjercicioDraft(BaseModel):

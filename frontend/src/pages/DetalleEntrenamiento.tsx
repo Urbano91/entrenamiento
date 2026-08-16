@@ -9,6 +9,7 @@ import { AppLayout } from '../components/AppLayout';
 import { ExerciseDetail } from '../components/ExerciseDetail';
 import { ActionLink, Badge, Button, EmptyState, Modal, Surface } from '../components/ui';
 import { EntrenamientoDetail } from '../types/fase2';
+import { useToast } from '../utils/useToast';
 
 const todayIso = () => {
     const today = new Date();
@@ -26,6 +27,9 @@ export const DetalleEntrenamiento: React.FC = () => {
     const [reuseForm, setReuseForm] = useState({ fecha: '', nombre: '' });
     const [showDelete, setShowDelete] = useState(false);
     const [error, setError] = useState('');
+    const [isReusing, setIsReusing] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const { success, error: toastError } = useToast();
 
     useEffect(() => {
         if (!id) return;
@@ -41,25 +45,33 @@ export const DetalleEntrenamiento: React.FC = () => {
             setError('No puedes crear un entrenamiento en una fecha pasada.');
             return;
         }
+        setIsReusing(true);
         try {
             const copy = await api.post<EntrenamientoDetail>(`/entrenamientos/${id}/reutilizar`, {
                 fecha: reuseForm.fecha,
                 nombre: reuseForm.nombre || undefined,
             });
+            success('Copia creada con éxito');
             navigate(`/entrenamientos/${copy.id}`);
         } catch (caught: unknown) {
-            setError(caught instanceof Error ? caught.message : 'No se pudo duplicar el entrenamiento.');
+            toastError(caught instanceof Error ? caught.message : 'No se pudo duplicar el entrenamiento.');
             setShowReuse(false);
+        } finally {
+            setIsReusing(false);
         }
     };
 
     const handleDelete = async () => {
+        setIsDeleting(true);
         try {
             await api.delete(`/entrenamientos/${id}`);
+            success('Entrenamiento eliminado');
             navigate('/entrenamientos');
         } catch (caught: unknown) {
-            setError(caught instanceof Error ? caught.message : 'No se pudo eliminar el entrenamiento.');
+            toastError(caught instanceof Error ? caught.message : 'No se pudo eliminar el entrenamiento.');
             setShowDelete(false);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -151,7 +163,7 @@ export const DetalleEntrenamiento: React.FC = () => {
                     title="Duplicar entrenamiento"
                     description="Se creará una copia independiente y el original permanecerá intacto."
                     onClose={() => setShowReuse(false)}
-                    footer={<div className="flex justify-end gap-3"><Button variant="secondary" onClick={() => setShowReuse(false)}>Cancelar</Button><Button onClick={handleReuse} disabled={!reuseForm.fecha || reuseForm.fecha < todayIso()}><Copy className="h-4 w-4" />Crear copia</Button></div>}
+                    footer={<div className="flex justify-end gap-3"><Button variant="secondary" onClick={() => setShowReuse(false)}>Cancelar</Button><Button onClick={handleReuse} disabled={!reuseForm.fecha || reuseForm.fecha < todayIso()} loading={isReusing} loadingText="Creando..."><Copy className="h-4 w-4" />Crear copia</Button></div>}
                 >
                     <div className="space-y-3">
                         <div><label className="field-label">Nueva fecha *</label><input type="date" min={todayIso()} value={reuseForm.fecha} onChange={event => setReuseForm(current => ({ ...current, fecha: event.target.value }))} className="field-control" /></div>
@@ -165,7 +177,7 @@ export const DetalleEntrenamiento: React.FC = () => {
                     title="Eliminar entrenamiento"
                     description={`Se eliminará “${training.nombre}”. Los ejercicios de la biblioteca no se verán afectados.`}
                     onClose={() => setShowDelete(false)}
-                    footer={<div className="flex justify-end gap-3"><Button variant="secondary" onClick={() => setShowDelete(false)}>Cancelar</Button><Button variant="danger" onClick={handleDelete}>Eliminar</Button></div>}
+                    footer={<div className="flex justify-end gap-3"><Button variant="secondary" onClick={() => setShowDelete(false)}>Cancelar</Button><Button variant="danger" onClick={handleDelete} loading={isDeleting} loadingText="Eliminando...">Eliminar</Button></div>}
                 >
                     <p className="text-sm leading-6 text-slate-700">Esta acción no se puede deshacer.</p>
                 </Modal>

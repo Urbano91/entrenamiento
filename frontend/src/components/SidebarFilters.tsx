@@ -180,6 +180,24 @@ export const SidebarFilters: React.FC<FiltersProps> = ({
 
             <div className="space-y-4">
                 <div>
+                    <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                            type="checkbox"
+                            checked={filters.scope === 'favoritos'}
+                            onChange={(event) => {
+                                setFilters(previous => ({
+                                    ...previous,
+                                    scope: event.target.checked ? 'favoritos' : undefined,
+                                    page: 1,
+                                }));
+                            }}
+                            className="h-4 w-4 rounded border-slate-300 text-primary-700 focus:ring-primary-600"
+                        />
+                        <span className="text-sm font-semibold text-slate-700">Favoritos</span>
+                    </label>
+                </div>
+
+                <div>
                     <label className="field-label">Buscar</label>
                     <input
                         type="text"

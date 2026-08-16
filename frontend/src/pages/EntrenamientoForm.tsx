@@ -7,6 +7,7 @@ import { EjercicioEnEntreno, EntrenamientoDetail } from '../types/fase2';
 import { EjercicioList } from '../types/ejercicios';
 import { GripVertical, Trash2, Plus, Save, Clock3, Dumbbell, Target, PackageOpen, Users, Maximize2 } from 'lucide-react';
 import { Badge, Button, PageHeader, Surface } from '../components/ui';
+import { useToast } from '../utils/useToast';
 
 interface Props {
     editId?: number;
@@ -26,6 +27,8 @@ export const EntrenamientoForm: React.FC<Props> = ({ editId }) => {
     const initFecha = !editId && requestedDate && requestedDate < minimumDate
         ? minimumDate
         : requestedDate || minimumDate;
+
+    const { success } = useToast();
 
     const [form, setForm] = useState({
         fecha: initFecha,
@@ -172,6 +175,7 @@ export const EntrenamientoForm: React.FC<Props> = ({ editId }) => {
             if (editId) {
                 await api.put<EntrenamientoDetail>(`/entrenamientos/${editId}`, payload);
                 await syncEditedExercises(editId);
+                success('Entrenamiento actualizado con éxito');
                 navigate(`/entrenamientos/${editId}`);
             } else {
                 const nuevo = await api.post<EntrenamientoDetail>('/entrenamientos', payload);
@@ -182,6 +186,7 @@ export const EntrenamientoForm: React.FC<Props> = ({ editId }) => {
                         orden: i,
                     });
                 }
+                success('Entrenamiento creado con éxito');
                 navigate(`/entrenamientos/${nuevo.id}`);
             }
         } catch (err: unknown) {
@@ -260,68 +265,68 @@ export const EntrenamientoForm: React.FC<Props> = ({ editId }) => {
                         </div>
                         <div className="p-4 sm:p-5">
                             {ejercicios.length === 0 ? (
-                            <div className="rounded-2xl border border-dashed border-slate-300 px-5 py-7 text-center">
-                                <Dumbbell className="mx-auto h-8 w-8 text-slate-400" />
-                                <p className="mt-3 font-semibold text-slate-800">Construye la sesión desde la biblioteca</p>
-                                <p className="mt-1 text-sm text-slate-600">Selecciona ejercicios y ordénalos según la secuencia de trabajo.</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {ejercicios.map((ej, idx) => (
-                                    <article key={ej.id} data-exercise-id={ej.id} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border bg-white p-2.5 transition sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:p-3 ${draggedExerciseId === ej.id ? 'border-primary-400 bg-primary-50 opacity-75 shadow-sm' : 'border-slate-200'}`}>
-                                        <button
-                                            type="button"
-                                            onPointerDown={event => {
-                                                if (!event.isPrimary || reordering) return;
-                                                event.currentTarget.setPointerCapture(event.pointerId);
-                                                draggedExerciseIdRef.current = ej.id;
-                                                setDraggedExerciseId(ej.id);
-                                            }}
-                                            onPointerMove={event => {
-                                                if (draggedExerciseIdRef.current === null) return;
-                                                const row = document.elementFromPoint(event.clientX, event.clientY)
-                                                    ?.closest<HTMLElement>('[data-exercise-id]');
-                                                const targetId = Number(row?.dataset.exerciseId);
-                                                if (Number.isFinite(targetId)) reorderTo(targetId);
-                                            }}
-                                            onPointerUp={event => finishDrag(event.pointerId, event.currentTarget)}
-                                            onPointerCancel={event => finishDrag(event.pointerId, event.currentTarget)}
-                                            className="flex h-11 w-9 touch-none cursor-grab items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 active:cursor-grabbing disabled:cursor-default disabled:opacity-50"
-                                            aria-label={`Arrastrar ${ej.nombre || `ejercicio ${idx + 1}`} para cambiar el orden`}
-                                            title="Mantén pulsado y arrastra para reordenar"
-                                            disabled={reordering}
-                                        >
-                                            <GripVertical className="h-5 w-5" aria-hidden="true" />
-                                        </button>
-                                        <div className="hidden h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-primary-950 text-lg font-bold text-white sm:flex">
-                                            {ej.tiene_portada ? (
-                                            <img src={exerciseCoverUrl(ej.ejercicio_id)} alt={`Portada de ${ej.nombre}`}
-                                                className="h-full w-full object-cover" />
-                                            ) : ej.imagen_principal ? (
-                                            <img src={imageUrl(ej.imagen_principal)} alt=""
-                                                className="h-full w-full object-cover" />
-                                            ) : String(idx + 1).padStart(2, '0')}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs font-bold text-primary-700 sm:hidden">{String(idx + 1).padStart(2, '0')}</span>
-                                                <p className="break-words font-bold text-slate-950 [overflow-wrap:anywhere]">{ej.nombre || `Ejercicio ${ej.ejercicio_id}`}</p>
+                                <div className="rounded-2xl border border-dashed border-slate-300 px-5 py-7 text-center">
+                                    <Dumbbell className="mx-auto h-8 w-8 text-slate-400" />
+                                    <p className="mt-3 font-semibold text-slate-800">Construye la sesión desde la biblioteca</p>
+                                    <p className="mt-1 text-sm text-slate-600">Selecciona ejercicios y ordénalos según la secuencia de trabajo.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {ejercicios.map((ej, idx) => (
+                                        <article key={ej.id} data-exercise-id={ej.id} className={`grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-xl border bg-white p-2.5 transition sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] sm:p-3 ${draggedExerciseId === ej.id ? 'border-primary-400 bg-primary-50 opacity-75 shadow-sm' : 'border-slate-200'}`}>
+                                            <button
+                                                type="button"
+                                                onPointerDown={event => {
+                                                    if (!event.isPrimary || reordering) return;
+                                                    event.currentTarget.setPointerCapture(event.pointerId);
+                                                    draggedExerciseIdRef.current = ej.id;
+                                                    setDraggedExerciseId(ej.id);
+                                                }}
+                                                onPointerMove={event => {
+                                                    if (draggedExerciseIdRef.current === null) return;
+                                                    const row = document.elementFromPoint(event.clientX, event.clientY)
+                                                        ?.closest<HTMLElement>('[data-exercise-id]');
+                                                    const targetId = Number(row?.dataset.exerciseId);
+                                                    if (Number.isFinite(targetId)) reorderTo(targetId);
+                                                }}
+                                                onPointerUp={event => finishDrag(event.pointerId, event.currentTarget)}
+                                                onPointerCancel={event => finishDrag(event.pointerId, event.currentTarget)}
+                                                className="flex h-11 w-9 touch-none cursor-grab items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 active:cursor-grabbing disabled:cursor-default disabled:opacity-50"
+                                                aria-label={`Arrastrar ${ej.nombre || `ejercicio ${idx + 1}`} para cambiar el orden`}
+                                                title="Mantén pulsado y arrastra para reordenar"
+                                                disabled={reordering}
+                                            >
+                                                <GripVertical className="h-5 w-5" aria-hidden="true" />
+                                            </button>
+                                            <div className="hidden h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-primary-950 text-lg font-bold text-white sm:flex">
+                                                {ej.tiene_portada ? (
+                                                    <img src={exerciseCoverUrl(ej.ejercicio_id)} alt={`Portada de ${ej.nombre}`}
+                                                        className="h-full w-full object-cover" />
+                                                ) : ej.imagen_principal ? (
+                                                    <img src={imageUrl(ej.imagen_principal)} alt=""
+                                                        className="h-full w-full object-cover" />
+                                                ) : String(idx + 1).padStart(2, '0')}
                                             </div>
-                                            <div className="mt-2 flex flex-wrap gap-1.5">
-                                                {ej.tipo && <Badge tone="green">{ej.tipo}</Badge>}
-                                                <Badge><Users className="mr-1 h-3 w-3" />{ej.jugadores} jugadores</Badge>
-                                                {ej.espacio && <Badge><Maximize2 className="mr-1 h-3 w-3" />{ej.espacio}</Badge>}
-                                                {ej.tiempo && <Badge><Clock3 className="mr-1 h-3 w-3" />{ej.tiempo}</Badge>}
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-bold text-primary-700 sm:hidden">{String(idx + 1).padStart(2, '0')}</span>
+                                                    <p className="break-words font-bold text-slate-950 [overflow-wrap:anywhere]">{ej.nombre || `Ejercicio ${ej.ejercicio_id}`}</p>
+                                                </div>
+                                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                                    {ej.tipo && <Badge tone="green">{ej.tipo}</Badge>}
+                                                    <Badge><Users className="mr-1 h-3 w-3" />{ej.jugadores} jugadores</Badge>
+                                                    {ej.espacio && <Badge><Maximize2 className="mr-1 h-3 w-3" />{ej.espacio}</Badge>}
+                                                    {ej.tiempo && <Badge><Clock3 className="mr-1 h-3 w-3" />{ej.tiempo}</Badge>}
+                                                </div>
                                             </div>
-                                        </div>
-                                        <button type="button" onClick={() => removeEjercicio(ej.ejercicio_id)}
-                                            className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800" aria-label={`Eliminar ${ej.nombre}`} title="Eliminar">
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
-                                    </article>
-                                ))}
-                            </div>
-                        )}
+                                            <button type="button" onClick={() => removeEjercicio(ej.ejercicio_id)}
+                                                className="flex h-11 w-11 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800" aria-label={`Eliminar ${ej.nombre}`} title="Eliminar">
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </article>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </Surface>
 
@@ -363,7 +368,7 @@ export const EntrenamientoForm: React.FC<Props> = ({ editId }) => {
 
                     <div className="sticky bottom-20 z-20 flex justify-end gap-2 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-panel backdrop-blur lg:bottom-4">
                         <Button type="button" variant="secondary" onClick={() => navigate(-1)}>Cancelar</Button>
-                        <Button type="submit" disabled={saving}><Save className="h-4 w-4" />{saving ? 'Guardando…' : 'Guardar'}</Button>
+                        <Button type="submit" loading={saving} loadingText="Guardando..."><Save className="h-4 w-4" />Guardar</Button>
                     </div>
                 </form>
             </div>
