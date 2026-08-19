@@ -18,6 +18,8 @@ interface ClubTrainer {
     nombre: string;
     apellidos: string;
     categoria: string;
+    puesto: string;
+    parent_coach_assignment_id?: number | null;
     temporada_id: number;
     temporada: string;
     training_count: number;
@@ -95,8 +97,13 @@ export const ClubDashboard: React.FC = () => {
     const [exporting, setExporting] = useState(false);
     const [success, setSuccess] = useState('');
     const [assignmentOpen, setAssignmentOpen] = useState(false);
+    const [technicalStaffOwner, setTechnicalStaffOwner] = useState<ClubTrainer | null>(null);
     const [newTrainer, setNewTrainer] = useState({
-        nombre: '', apellidos: '', categoria: '',
+        nombre: '',
+        apellidos: '',
+        categoria: '',
+        puesto: 'Entrenador',
+        parent_coach_assignment_id: null as number | null,
     });
     const [createdTrainer, setCreatedTrainer] = useState<ClubTrainer | null>(null);
     const [credentialsCopied, setCredentialsCopied] = useState(false);
@@ -148,9 +155,27 @@ export const ClubDashboard: React.FC = () => {
         () => trainers.filter(item => item.temporada_id === seasonId),
         [trainers, seasonId],
     );
-    const visibleSeasonTrainers = useMemo(
-        () => seasonTrainers.filter(item => item.visible),
+
+    const seasonCoaches = useMemo(
+        () => seasonTrainers.filter(item => item.puesto === 'Entrenador'),
         [seasonTrainers],
+    );
+
+    const technicalStaff = useMemo(
+        () => seasonTrainers.filter(item => item.puesto !== 'Entrenador'),
+        [seasonTrainers],
+    );
+
+    const selectedTechnicalStaff = useMemo(
+        () => technicalStaff.filter(
+            item => item.parent_coach_assignment_id === technicalStaffOwner?.assignment_id
+        ),
+        [technicalStaff, technicalStaffOwner],
+    );
+
+    const visibleSeasonTrainers = useMemo(
+        () => seasonCoaches.filter(item => item.visible),
+        [seasonCoaches],
     );
 
     const move = (direction: number) => {
@@ -166,12 +191,22 @@ export const ClubDashboard: React.FC = () => {
         setAssignmentOpen(false);
         setCreatedTrainer(null);
         setCredentialsCopied(false);
-        setNewTrainer({ nombre: '', apellidos: '', categoria: '' });
+        setNewTrainer({
+            nombre: '',
+            apellidos: '',
+            categoria: '',
+            puesto: 'Entrenador',
+            parent_coach_assignment_id: null,
+        });
     };
 
     const openAssignment = () => {
         setNewTrainer({
-            nombre: '', apellidos: '', categoria: '',
+            nombre: '',
+            apellidos: '',
+            categoria: '',
+            puesto: 'Entrenador',
+            parent_coach_assignment_id: null,
         });
         setCreatedTrainer(null);
         setCredentialsCopied(false);
@@ -180,7 +215,14 @@ export const ClubDashboard: React.FC = () => {
     };
 
     const assignTrainer = async () => {
-        if (!seasonId || !newTrainer.nombre.trim() || !newTrainer.apellidos.trim() || !newTrainer.categoria.trim()) return;
+        if (
+            !seasonId ||
+            !newTrainer.nombre.trim() ||
+            !newTrainer.apellidos.trim() ||
+            !newTrainer.categoria.trim() ||
+            !newTrainer.puesto.trim() ||
+            (newTrainer.puesto !== 'Entrenador' && !newTrainer.parent_coach_assignment_id)
+        ) return;
         setAssigning(true);
         setError('');
         try {
@@ -192,7 +234,7 @@ export const ClubDashboard: React.FC = () => {
             setCreatedTrainer(assigned);
             setSuccess(`${assigned.nombre} ${assigned.apellidos} se ha añadido al club.`);
         } catch (reason) {
-            setError(reason instanceof Error ? reason.message : 'No se pudo crear el entrenador.');
+            setError(reason instanceof Error ? reason.message : 'No se pudo crear el miembro del cuerpo técnico.');
         } finally {
             setAssigning(false);
         }
@@ -401,11 +443,17 @@ export const ClubDashboard: React.FC = () => {
                 </Surface>
 
                 <div className="mt-4 flex items-center justify-between gap-3">
-                    <h2 className="text-lg font-bold text-slate-950">Entrenadores del club</h2>
-                    <Button onClick={openAssignment}><Plus className="h-4 w-4" />Añadir</Button>
+                    <h2 className="text-lg font-bold text-slate-950">
+                        Entrenadores del club
+                    </h2>
+
+                    <Button onClick={openAssignment}>
+                        <Plus className="h-4 w-4" />
+                        Añadir
+                    </Button>
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {seasonTrainers.map(trainer => (
+                    {seasonCoaches.map(trainer => (
                         <Surface key={trainer.assignment_id} className={`p-4 ${trainer.visible ? '' : 'opacity-70'}`}>
                             <Users className="h-5 w-5" style={{ color: trainer.color }} />
                             <div className="mt-2 flex items-center justify-between gap-3">
@@ -422,21 +470,68 @@ export const ClubDashboard: React.FC = () => {
                                         : trainer.visible ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
                                 </button>
                             </div>
-                            <p className="text-sm text-slate-600">{trainer.categoria} · {trainer.temporada}</p>
+                            <p className="text-sm text-slate-600">
+                                {trainer.categoria} · {trainer.puesto} · {trainer.temporada}
+                            </p>
                             <p className="mt-2 text-sm font-semibold text-slate-800">
                                 {trainer.training_count} entrenamientos · {trainer.match_count} partidos en la temporada
                             </p>
+
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                className="mt-3"
+                                onClick={() => setTechnicalStaffOwner(trainer)}
+                            >
+                                <Users className="h-4 w-4" />
+                                Cuerpo técnico
+                            </Button>
                         </Surface>
                     ))}
                 </div>
             </div>
+            {technicalStaffOwner && (
+                <Modal
+                    title={`Cuerpo técnico · ${technicalStaffOwner.nombre} ${technicalStaffOwner.apellidos}`}
+                    description={`${technicalStaffOwner.categoria} · ${technicalStaffOwner.temporada}`}
+                    onClose={() => setTechnicalStaffOwner(null)}
+                    footer={
+                        <Button onClick={() => setTechnicalStaffOwner(null)}>
+                            Cerrar
+                        </Button>
+                    }
+                >
+                    {selectedTechnicalStaff.length === 0 ? (
+                        <p className="text-sm text-slate-600">
+                            No hay miembros del cuerpo técnico asociados a este entrenador.
+                        </p>
+                    ) : (
+                        <div className="space-y-3">
+                            {selectedTechnicalStaff.map(member => (
+                                <div
+                                    key={member.assignment_id}
+                                    className="rounded-xl border border-slate-200 bg-white p-3"
+                                >
+                                    <p className="font-bold text-slate-950">
+                                        {member.nombre} {member.apellidos}
+                                    </p>
+                                    <p className="mt-1 text-sm text-slate-600">
+                                        {member.puesto}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Modal>
+            )}
+
 
             {assignmentOpen && (
                 <Modal
-                    title="Añadir entrenador"
+                    title="Añadir"
                     description={createdTrainer
-                        ? 'Cuenta creada correctamente. Entrega estas credenciales temporales al entrenador.'
-                        : 'Crea una cuenta nueva y asóciala directamente al club.'}
+                    ? 'Cuenta creada correctamente. Entrega estas credenciales temporales al miembro del cuerpo técnico.'
+                    : 'Crea una cuenta nueva y asóciala directamente al cuerpo técnico del club.'}
                     onClose={() => { if (!assigning) closeAssignment(); }}
                     footer={(
                         <div className="flex justify-end gap-3">
@@ -445,8 +540,15 @@ export const ClubDashboard: React.FC = () => {
                             ) : (
                                 <>
                                     <Button variant="secondary" onClick={closeAssignment} disabled={assigning}>Cancelar</Button>
-                                    <Button onClick={() => { void assignTrainer(); }} disabled={assigning || !newTrainer.nombre.trim() || !newTrainer.apellidos.trim() || !newTrainer.categoria.trim()}>
-                                        {assigning && <Loader2 className="h-4 w-4 animate-spin" />}Crear entrenador
+                                    <Button onClick={() => { void assignTrainer(); }} disabled={
+                                    assigning ||
+                                    !newTrainer.nombre.trim() ||
+                                    !newTrainer.apellidos.trim() ||
+                                    !newTrainer.categoria.trim() ||
+                                    !newTrainer.puesto.trim() ||
+                                    (newTrainer.puesto !== 'Entrenador' && !newTrainer.parent_coach_assignment_id)
+                                }>
+                                        {assigning && <Loader2 className="h-4 w-4 animate-spin" />}Crear
                                     </Button>
                                 </>
                             )}
@@ -465,17 +567,109 @@ export const ClubDashboard: React.FC = () => {
                             </Button>
                         </section>
                     ) : (
-                        <div className="space-y-4">
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <div><label className="field-label">Nombre *</label><input className="field-control" value={newTrainer.nombre} onChange={event => setNewTrainer(current => ({ ...current, nombre: event.target.value }))} /></div>
-                                <div><label className="field-label">Apellidos *</label><input className="field-control" value={newTrainer.apellidos} onChange={event => setNewTrainer(current => ({ ...current, apellidos: event.target.value }))} /></div>
-                            </div>
-                            <div>
-                                <label className="field-label">Categoría *</label>
-                                <input className="field-control" value={newTrainer.categoria} placeholder="Introducir categoría" onChange={event => setNewTrainer(current => ({ ...current, categoria: event.target.value }))} />
-                            </div>
-                            <p className="text-sm text-slate-600">Temporada: {seasons.find(item => item.id === seasonId)?.nombre || 'Seleccionada'}</p>
-                        </div>
+<div className="space-y-4">
+    <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+            <label className="field-label">Nombre *</label>
+            <input
+                className="field-control"
+                value={newTrainer.nombre}
+                onChange={event =>
+                    setNewTrainer(current => ({
+                        ...current,
+                        nombre: event.target.value,
+                    }))
+                }
+            />
+        </div>
+
+        <div>
+            <label className="field-label">Apellidos *</label>
+            <input
+                className="field-control"
+                value={newTrainer.apellidos}
+                onChange={event =>
+                    setNewTrainer(current => ({
+                        ...current,
+                        apellidos: event.target.value,
+                    }))
+                }
+            />
+        </div>
+    </div>
+
+    <div>
+        <label className="field-label">Puesto *</label>
+        <select
+            className="field-control"
+            value={newTrainer.puesto}
+            onChange={event => {
+                const puesto = event.target.value;
+                setNewTrainer(current => ({
+                    ...current,
+                    puesto,
+                    parent_coach_assignment_id: null,
+                    categoria: puesto === 'Entrenador' ? current.categoria : '',
+                }));
+            }}
+        >
+            <option value="Entrenador">Entrenador</option>
+            <option value="Segundo entrenador">Segundo entrenador</option>
+            <option value="Preparador físico">Preparador físico</option>
+            <option value="Analista">Analista</option>
+            <option value="Entrenador de porteros">Entrenador de porteros</option>
+        </select>
+    </div>
+
+    {newTrainer.puesto !== 'Entrenador' && (
+        <div>
+            <label className="field-label">Depende de *</label>
+            <select
+                className="field-control"
+                value={newTrainer.parent_coach_assignment_id ?? ''}
+                onChange={event => {
+                    const assignmentId = Number(event.target.value);
+                    const coach = seasonCoaches.find(
+                        item => item.assignment_id === assignmentId
+                    );
+
+                    setNewTrainer(current => ({
+                        ...current,
+                        parent_coach_assignment_id: assignmentId || null,
+                        categoria: coach?.categoria ?? '',
+                    }));
+                }}
+            >
+                <option value="">Seleccionar entrenador</option>
+                {seasonCoaches.map(coach => (
+                    <option key={coach.assignment_id} value={coach.assignment_id}>
+                        {coach.nombre} {coach.apellidos} · {coach.categoria}
+                    </option>
+                ))}
+            </select>
+        </div>
+    )}
+
+    <div>
+        <label className="field-label">Categoría *</label>
+        <input
+            className="field-control"
+            value={newTrainer.categoria}
+            placeholder="Introducir categoría"
+            disabled={newTrainer.puesto !== 'Entrenador'}
+            onChange={event =>
+                setNewTrainer(current => ({
+                    ...current,
+                    categoria: event.target.value,
+                }))
+            }
+        />
+    </div>
+
+    <p className="text-sm text-slate-600">
+        Temporada: {seasons.find(item => item.id === seasonId)?.nombre || 'Seleccionada'}
+    </p>
+</div>
                     )}
                 </Modal>
             )}

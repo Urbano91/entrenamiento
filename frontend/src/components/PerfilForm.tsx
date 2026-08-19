@@ -20,6 +20,7 @@ export const PerfilForm: React.FC<Props> = ({ isSetup = false }) => {
         club_actual: '',
         temporada_actual_id: '' as string | number,
     });
+    const [puesto, setPuesto] = useState('Entrenador');
     const [nuevaTemp, setNuevaTemp] = useState({
         nombre: '', fecha_inicio: '', fecha_fin: '',
     });
@@ -32,20 +33,21 @@ export const PerfilForm: React.FC<Props> = ({ isSetup = false }) => {
     useEffect(() => {
         api.get<Temporada[]>('/temporadas').then(setTemporadas).catch(() => setError('No se pudieron cargar las temporadas.'));
         if (!isSetup) {
-            api.get<Perfil>('/perfil').then(p => {
+            api.get<Perfil & { puesto?: string | null }>('/perfil').then(p => {
                 setForm({
                     nombre: p.nombre,
                     apellidos: p.apellidos,
                     club_actual: p.club_actual || '',
                     temporada_actual_id: p.temporada_actual_id || '',
                 });
+                setPuesto(p.puesto || 'Entrenador');
                 setLoading(false);
             }).catch(() => {
                 setError('No se pudo cargar el perfil.');
                 setLoading(false);
             });
         } else {
-            api.get<Perfil>('/perfil').then(p => {
+            api.get<Perfil & { puesto?: string | null }>('/perfil').then(p => {
                 setForm(current => ({
                     ...current,
                     nombre: p.nombre,
@@ -53,6 +55,7 @@ export const PerfilForm: React.FC<Props> = ({ isSetup = false }) => {
                     club_actual: p.club_actual || '',
                     temporada_actual_id: p.temporada_actual_id || '',
                 }));
+                setPuesto(p.puesto || 'Entrenador');
             }).catch(() => undefined);
         }
     }, [isSetup]);
@@ -118,7 +121,7 @@ export const PerfilForm: React.FC<Props> = ({ isSetup = false }) => {
             <div className="mx-auto max-w-5xl">
                 <PageHeader
                     eyebrow={isSetup ? 'Primer acceso' : 'Cuenta profesional'}
-                    title={isSetup ? 'Configura tu perfil de entrenador' : 'Mi perfil'}
+                    title={isSetup ? 'Configura tu perfil profesional' : 'Mi perfil'}
                     description={isSetup ? 'Esta es una contraseña provisional. Completa tus datos y cámbiala para continuar.' : 'Actualiza la información que identifica tu contexto deportivo actual.'}
                 />
 
@@ -129,11 +132,11 @@ export const PerfilForm: React.FC<Props> = ({ isSetup = false }) => {
                                 <UserCircle2 className="h-7 w-7" />
                             </div>
                             <h2 className="mt-3 text-lg font-bold">{form.nombre || 'Tu nombre'} {form.apellidos}</h2>
-                            <Badge className="mt-2 bg-white/10 text-white ring-white/20"><ShieldCheck className="mr-1 h-3.5 w-3.5" />Perfil de entrenador</Badge>
+                            <Badge className="mt-2 bg-white/10 text-white ring-white/20"><ShieldCheck className="mr-1 h-3.5 w-3.5" />Perfil profesional</Badge>
                         </div>
                         <div className="space-y-3 border-t border-white/10 bg-primary-900/60 p-5 text-sm">
                             <div className="flex items-center gap-3 text-primary-100"><Building2 className="h-4 w-4 text-primary-300" /><span>{form.club_actual || 'Club sin asignar'}</span></div>
-                            <div className="flex items-center gap-3 text-primary-100"><BriefcaseBusiness className="h-4 w-4 text-primary-300" /><span>Entrenador</span></div>
+                            <div className="flex items-center gap-3 text-primary-100"><BriefcaseBusiness className="h-4 w-4 text-primary-300" /><span>{puesto}</span></div>
                             <div className="flex items-center gap-3 text-primary-100"><CalendarRange className="h-4 w-4 text-primary-300" /><span>{temporadas.find(season => season.id === Number(form.temporada_actual_id))?.nombre || 'Temporada sin asignar'}</span></div>
                         </div>
                     </div>
@@ -186,7 +189,7 @@ export const PerfilForm: React.FC<Props> = ({ isSetup = false }) => {
                     </div>
                     <div>
                         <label className="field-label">Cargo</label>
-                        <input className="field-control" value="Entrenador" disabled aria-describedby="cargo-help" />
+                        <input className="field-control" value={puesto} disabled aria-describedby="cargo-help" />
                         <p id="cargo-help" className="mt-1.5 text-xs text-slate-500">Rol actual de la plataforma.</p>
                     </div>
                     <div>

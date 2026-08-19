@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.models.models import PerfilEntrenador, Temporada, Usuario
+from app.models.models import CoachAssignment, PerfilEntrenador, Temporada, Usuario
 from app.api.auth import get_current_user
 from app.services.permissions import require_trainer
 from pydantic import BaseModel
@@ -34,6 +34,7 @@ class PerfilOut(BaseModel):
     club_actual: Optional[str]
     temporada_actual_id: Optional[int]
     temporada_actual: Optional[TemporadaMiniOut]
+    puesto: Optional[str] = None
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
@@ -41,38 +42,41 @@ class PerfilOut(BaseModel):
 
 
 @router.get("", response_model=PerfilOut)
-def get_perfil(current_user: Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
-    require_trainer(db, current_user)
-    perfil = db.query(PerfilEntrenador).filter(PerfilEntrenador.usuario_id == current_user.id).first()
-    if not perfil:
-        raise HTTPException(status_code=404, detail="Perfil no encontrado")
-    return perfil
-
-
-@router.put("", response_model=PerfilOut)
-def upsert_perfil(
-    data: PerfilUpdate,
+def get_perfil(
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     require_trainer(db, current_user)
-    perfil = db.query(PerfilEntrenador).filter(PerfilEntrenador.usuario_id == current_user.id).first()
+
+    perfil = db.query(PerfilEntrenador).filter(
+        PerfilEntrenador.usuario_id == current_user.id
+    ).first()
+
     if not perfil:
-        perfil = PerfilEntrenador(usuario_id=current_user.id)
-        db.add(perfil)
+        raise HTTPException(
+            status_code=404,
+            detail="Perfil no encontrado"
+        )
 
-    perfil.nombre = data.nombre
-    perfil.apellidos = data.apellidos
-    perfil.club_actual = data.club_actual
-    if "temporada_actual_id" in data.model_fields_set:
-        if data.temporada_actual_id is not None:
-            temporada = db.query(Temporada.id).filter(
-                Temporada.id == data.temporada_actual_id
-            ).first()
-            if not temporada:
-                raise HTTPException(status_code=422, detail="La temporada indicada no existe")
-        perfil.temporada_actual_id = data.temporada_actual_id
+    assignment = (
+        db.query(CoachAssignment)
+        .filter(
+            CoachAssignment.coach_user_id == perfil.usuario_id,
+            CoachAssignment.temporada_id == perfil.temporada_actual_id,
+        )
+        .order_by(CoachAssignment.id.desc())
+        .first()
+    )
 
-    db.commit()
-    db.refresh(perfil)
-    return perfil
+    return {
+        "id": perfil.id,
+        "usuario_id": perfil.usuario_id,
+        "nombre": perfil.nombre,
+        "apellidos": perfil.apellidos,
+        "club_actual": perfil.club_actual,
+        "temporada_actual_id": perfil.temporada_actual_id,
+        "temporada_actual": perfil.temporada_actual,
+        "puesto": assignment.puesto if assignment else None,
+        "created_at": perfil.created_at,
+        "updated_at": perfil.updated_at,
+    }

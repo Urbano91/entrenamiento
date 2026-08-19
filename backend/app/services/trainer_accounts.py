@@ -94,15 +94,31 @@ def create_trainer_account(
     club: Club | None,
     season: Temporada | None,
     category_name: str | None,
+    puesto: str = "Entrenador",
+    parent_coach_assignment_id: int | None = None,
 ) -> Usuario:
     username = usuario.strip()
+
     if not username:
-        raise HTTPException(status_code=422, detail="El usuario es obligatorio")
+        raise HTTPException(
+            status_code=422,
+            detail="El usuario es obligatorio",
+        )
+
     if username.casefold() == "admin":
-        raise HTTPException(status_code=409, detail="El usuario admin está reservado")
+        raise HTTPException(
+            status_code=409,
+            detail="El usuario admin está reservado",
+        )
+
     if db.query(Usuario.id).filter(Usuario.usuario == username).first():
-        raise HTTPException(status_code=409, detail="El usuario ya existe")
+        raise HTTPException(
+            status_code=409,
+            detail="El usuario ya existe",
+        )
+
     normalized_category = category_name.strip() if category_name else None
+
     if bool(normalized_category) != bool(season):
         raise HTTPException(
             status_code=422,
@@ -110,49 +126,66 @@ def create_trainer_account(
         )
 
     category = (
-        db.query(SportsCategory).filter(
-            SportsCategory.nombre.ilike(normalized_category)
-        ).one_or_none()
-        if normalized_category else None
+        db.query(SportsCategory)
+        .filter(SportsCategory.nombre.ilike(normalized_category))
+        .one_or_none()
+        if normalized_category
+        else None
     )
+
     user = Usuario(
         usuario=username,
         password_hash=get_password_hash(password_provisional),
         activo=True,
     )
+
     try:
         if normalized_category and category is None:
             category = SportsCategory(nombre=normalized_category)
             db.add(category)
             db.flush()
+
         db.add(user)
         db.flush()
-        db.add(UserAccount(
-            user_id=user.id,
-            account_type=AccountType.TRAINER.value,
-            must_change_password=True,
-            onboarding_complete=False,
-        ))
-        db.add(PerfilEntrenador(
-            usuario_id=user.id,
-            nombre=nombre.strip(),
-            apellidos=apellidos.strip(),
-            club_actual=club.nombre if club else None,
-            temporada_actual_id=season.id if season else None,
-        ))
+
+        db.add(
+            UserAccount(
+                user_id=user.id,
+                account_type=AccountType.TRAINER.value,
+                must_change_password=True,
+                onboarding_complete=False,
+            )
+        )
+
+        db.add(
+            PerfilEntrenador(
+                usuario_id=user.id,
+                nombre=nombre.strip(),
+                apellidos=apellidos.strip(),
+                club_actual=club.nombre if club else None,
+                temporada_actual_id=season.id if season else None,
+            )
+        )
+
         if season and category:
-            db.add(CoachAssignment(
-                coach_user_id=user.id,
-                club_id=club.id if club else None,
-                temporada_id=season.id,
-                category_id=category.id,
-                active=True,
-                visible_in_club=True,
-            ))
+            db.add(
+                CoachAssignment(
+                    coach_user_id=user.id,
+                    club_id=club.id if club else None,
+                    temporada_id=season.id,
+                    category_id=category.id,
+                    puesto=puesto,
+                    parent_coach_assignment_id=parent_coach_assignment_id,
+                    active=True,
+                    visible_in_club=True,
+                )
+            )
+
         db.commit()
         db.refresh(user)
+
     except Exception:
         db.rollback()
         raise
-    return user
 
+    return user

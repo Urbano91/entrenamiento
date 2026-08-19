@@ -231,16 +231,37 @@ class CoachAssignment(Base):
     )
     temporada_id = Column(Integer, ForeignKey("temporadas.id"), nullable=False)
     category_id = Column(Integer, ForeignKey("sports_categories.id"), nullable=False)
+
+    puesto = Column(String, nullable=False, default="Entrenador")
+
+    parent_coach_assignment_id = Column(
+        Integer,
+        ForeignKey("coach_assignments.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     active = Column(Boolean, nullable=False, default=True)
+
     visible_in_club = Column(
         Boolean, nullable=False, default=True, server_default=true()
     )
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False
+    )
 
     coach = relationship("Usuario")
     club = relationship("Club", back_populates="assignments")
     temporada = relationship("Temporada")
     category = relationship("SportsCategory")
+
+    parent_coach_assignment = relationship(
+        "CoachAssignment",
+        remote_side=[id],
+        foreign_keys=[parent_coach_assignment_id],
+    )
 
 
 class ExerciseOwnership(Base):

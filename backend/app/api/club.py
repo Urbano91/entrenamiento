@@ -49,6 +49,8 @@ class ClubTrainerOut(BaseModel):
     temporada_id: int
     temporada: str
     categoria: str
+    puesto: str
+    parent_coach_assignment_id: Optional[int] = None
     onboarding_complete: bool
     exercise_count: int
     training_count: int
@@ -67,6 +69,8 @@ class ClubTrainerCreate(BaseModel):
     apellidos: str = Field(min_length=1, max_length=180)
     temporada_id: int
     categoria: str = Field(min_length=1, max_length=120)
+    puesto: str = Field(min_length=1, max_length=120)
+    parent_coach_assignment_id: Optional[int] = None
 
 
 def assignment_payload(db: Session, assignment: CoachAssignment) -> dict:
@@ -96,6 +100,8 @@ def assignment_payload(db: Session, assignment: CoachAssignment) -> dict:
         "temporada_id": assignment.temporada_id,
         "temporada": assignment.temporada.nombre,
         "categoria": assignment.category.nombre,
+        "puesto": assignment.puesto,
+        "parent_coach_assignment_id": assignment.parent_coach_assignment_id,
         "onboarding_complete": bool(account and account.onboarding_complete),
         "exercise_count": exercise_count,
         "training_count": training_count,
@@ -137,6 +143,34 @@ def create_club_trainer(
     season = db.get(Temporada, data.temporada_id)
     if season is None:
         raise HTTPException(status_code=422, detail="Temporada no válida")
+
+    if data.puesto == "Entrenador":
+        if data.parent_coach_assignment_id is not None:
+            raise HTTPException(
+                status_code=422,
+                detail="Un entrenador no debe depender de otro entrenador",
+            )
+    else:
+        if data.parent_coach_assignment_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Debes indicar de qué entrenador depende este miembro del cuerpo técnico",
+            )
+
+        parent_assignment = db.query(CoachAssignment).filter(
+            CoachAssignment.id == data.parent_coach_assignment_id,
+            CoachAssignment.club_id == club.id,
+            CoachAssignment.temporada_id == data.temporada_id,
+            CoachAssignment.puesto == "Entrenador",
+            CoachAssignment.active.is_(True),
+        ).one_or_none()
+
+        if parent_assignment is None:
+            raise HTTPException(
+                status_code=422,
+                detail="El entrenador seleccionado no es válido para este club y temporada",
+            )
+
     credentials = generate_trainer_credentials(db, data.nombre, data.apellidos)
     user = create_trainer_account(
         db,
@@ -147,6 +181,8 @@ def create_club_trainer(
         club=club,
         season=season,
         category_name=data.categoria,
+        puesto=data.puesto,
+        parent_coach_assignment_id=data.parent_coach_assignment_id,
     )
     assignment = db.query(CoachAssignment).filter(
         CoachAssignment.coach_user_id == user.id,
@@ -173,6 +209,7 @@ def _coordination_data(
         CoachAssignment.temporada_id == temporada_id,
         CoachAssignment.active.is_(True),
         CoachAssignment.visible_in_club.is_(True),
+        CoachAssignment.puesto == "Entrenador",
     ).order_by(CoachAssignment.id).all()
     if selected_coach_user_id is not None:
         assignments = [
