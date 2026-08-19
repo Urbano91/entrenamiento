@@ -48,7 +48,7 @@ return (
                 />
 
                 <p className="mt-2 text-center text-sm font-bold uppercase tracking-[0.18em] text-primary-700">
-                    ScoutIA
+
                 </p>
             </div>
                 <h1 className="mt-1 text-center text-2xl font-bold text-slate-950"></h1>
