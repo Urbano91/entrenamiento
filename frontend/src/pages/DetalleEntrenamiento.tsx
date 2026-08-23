@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-    ArrowLeft, CalendarDays, Clock3, Copy, Dumbbell, Edit3,
-    FileText, Maximize2, Target, Trash2, Users,
+    Activity, ArrowLeft, CalendarDays, Clock3, Copy, Dumbbell, Edit3,
+    FileText, Info, Maximize2, Target, Trash2, Users,
 } from 'lucide-react';
 import { api, imageUrl } from '../services/api';
 import { AppLayout } from '../components/AppLayout';
@@ -17,10 +17,64 @@ const todayIso = () => {
     return `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
 };
 
+
+type TrainingLoadExercise = {
+    name: string;
+    score: number;
+    level: string;
+    work_minutes: number;
+    rest_minutes: number;
+    density: number;
+    area_per_player: number | null;
+    components: {
+        duration_density: number;
+        task_type: number;
+        space: number;
+        objectives: number;
+    };
+    reasons: string[];
+};
+
+type TrainingLoadResponse = {
+    entrenamiento_id: number;
+    nombre: string;
+    fecha: string;
+    duracion_minutos: number | null;
+    score: number;
+    level: string;
+    total_work_minutes?: number;
+    training_duration_minutes?: number | null;
+    exercise_loads?: TrainingLoadExercise[];
+    reasons: string[];
+};
+
+const loadPresentation = (level: string) => {
+    if (level === 'ALTA') {
+        return {
+            labelClass: 'bg-orange-100 text-orange-800 ring-orange-200',
+            barClass: 'bg-orange-500',
+        };
+    }
+
+    if (level === 'MODERADA') {
+        return {
+            labelClass: 'bg-amber-100 text-amber-800 ring-amber-200',
+            barClass: 'bg-amber-500',
+        };
+    }
+
+    return {
+        labelClass: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
+        barClass: 'bg-emerald-500',
+    };
+};
+
 export const DetalleEntrenamiento: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [training, setTraining] = useState<EntrenamientoDetail | null>(null);
+    const [trainingLoad, setTrainingLoad] = useState<TrainingLoadResponse | null>(null);
+    const [trainingLoadError, setTrainingLoadError] = useState('');
     const [loading, setLoading] = useState(true);
     const [selectedExerciseId, setSelectedExerciseId] = useState<number | null>(null);
     const [showReuse, setShowReuse] = useState(false);
@@ -33,8 +87,26 @@ export const DetalleEntrenamiento: React.FC = () => {
 
     useEffect(() => {
         if (!id) return;
-        api.get<EntrenamientoDetail>(`/entrenamientos/${id}`)
-            .then(setTraining)
+
+        setLoading(true);
+        setTrainingLoadError('');
+
+        Promise.all([
+            api.get<EntrenamientoDetail>(`/entrenamientos/${id}`),
+            api.get<TrainingLoadResponse>(`/training-load/${id}`)
+                .then(result => {
+                    setTrainingLoad(result);
+                    return result;
+                })
+                .catch(() => {
+                    setTrainingLoad(null);
+                    setTrainingLoadError('No se pudo calcular la carga estimada de esta sesión.');
+                    return null;
+                }),
+        ])
+            .then(([trainingResult]) => {
+                setTraining(trainingResult);
+            })
             .catch(() => navigate('/entrenamientos'))
             .finally(() => setLoading(false));
     }, [id, navigate]);
@@ -133,6 +205,105 @@ export const DetalleEntrenamiento: React.FC = () => {
                         </div>
                     )}
                 </Surface>
+
+                {trainingLoad && (
+                    <Surface className="mb-5 overflow-hidden">
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
+                            <div className="flex items-center gap-3">
+                                <span className="rounded-xl bg-primary-100 p-2 text-primary-800">
+                                    <Activity className="h-5 w-5" />
+                                </span>
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-wider text-primary-700">
+                                        Análisis SCOUT IA
+                                    </p>
+                                    <h2 className="mt-1 text-lg font-bold text-slate-950">
+                                        Carga estimada de la sesión
+                                    </h2>
+                                </div>
+                            </div>
+                            <Badge className="bg-primary-100 text-primary-800 ring-primary-200">
+                                BETA
+                            </Badge>
+                        </div>
+
+                        <div className="grid gap-6 p-4 sm:p-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                    Carga estimada
+                                </p>
+
+                                <div className="mt-3 flex flex-wrap items-end gap-3">
+                                    <span className="text-5xl font-black tracking-tight text-slate-950">
+                                        {Math.round(trainingLoad.score)}
+                                    </span>
+                                    <span className="pb-1 text-xl font-bold text-slate-400">/ 100</span>
+                                    <span
+                                        className={`mb-1 rounded-full px-3 py-1 text-xs font-bold ring-1 ${loadPresentation(trainingLoad.level).labelClass}`}
+                                    >
+                                        {trainingLoad.level}
+                                    </span>
+                                </div>
+
+                                <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-200">
+                                    <div
+                                        className={`h-full rounded-full transition-all ${loadPresentation(trainingLoad.level).barClass}`}
+                                        style={{ width: `${Math.max(0, Math.min(trainingLoad.score, 100))}%` }}
+                                    />
+                                </div>
+
+                                <div className="mt-2 flex justify-between text-xs font-semibold text-slate-400">
+                                    <span>0</span>
+                                    <span>25</span>
+                                    <span>50</span>
+                                    <span>75</span>
+                                    <span>100</span>
+                                </div>
+
+                                <div className="mt-5 rounded-xl border border-primary-100 bg-primary-50 p-3">
+                                    <div className="flex items-start gap-2">
+                                        <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-700" />
+                                        <p className="text-xs leading-5 text-slate-600">
+                                            Estimación previa de la sesión calculada a partir de su duración,
+                                            composición y características de los ejercicios. No representa la
+                                            carga física real de cada jugador.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                    ¿Por qué esta carga?
+                                </p>
+
+                                <div className="mt-3 space-y-2">
+                                    {trainingLoad.reasons.map((reason, index) => (
+                                        <div
+                                            key={`${reason}-${index}`}
+                                            className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5"
+                                        >
+                                            <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary-600" />
+                                            <p className="text-sm leading-5 text-slate-700">{reason}</p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {typeof trainingLoad.total_work_minutes === 'number' && (
+                                    <p className="mt-4 text-xs font-semibold text-slate-500">
+                                        Trabajo efectivo detectado en ejercicios: {trainingLoad.total_work_minutes} min
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </Surface>
+                )}
+
+                {trainingLoadError && (
+                    <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                        <span className="font-semibold">SCOUT IA:</span> {trainingLoadError}
+                    </div>
+                )}
 
                 <div className="mb-5 grid gap-3 lg:grid-cols-2">
                     <Surface className="p-4">

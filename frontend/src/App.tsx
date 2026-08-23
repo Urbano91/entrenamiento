@@ -18,6 +18,7 @@ import { ClubDashboard } from './pages/ClubDashboard';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { FirstAccess } from './pages/FirstAccess';
 import { ToastProvider } from './components/Toast';
+import { AnalisisSemanal } from './pages/AnalisisSemanal';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -139,6 +140,7 @@ const App: React.FC = () => {
             <Route element={<ProtectedRoute><ProfileRequiredRoute /></ProtectedRoute>}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/analisis-semanal" element={<AnalisisSemanal />} />
               <Route path="/calendario" element={<Calendario />} />
               <Route path="/entrenamientos" element={<MisEntrenamientos />} />
               <Route path="/entrenamientos/nuevo" element={<EntrenamientoForm />} />
