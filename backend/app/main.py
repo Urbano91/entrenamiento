@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
     admin, auth, calendario, catalogos, club, ejercicios, entrenamientos, imagenes, partidos,
-    perfil, planificaciones, taxonomia, temporadas,
+    perfil, planificaciones, taxonomia, temporadas, training_load,
 )
 
 app = FastAPI(title="Base de Entrenamiento de Fútbol API", version="3.1.0")
@@ -38,6 +38,7 @@ app.include_router(calendario.router)
 app.include_router(partidos.router)
 app.include_router(planificaciones.router)
 app.include_router(planificaciones.documents_router)
+app.include_router(training_load.router)
 
 @app.get("/api/health", tags=["Health"])
 def health_check():
