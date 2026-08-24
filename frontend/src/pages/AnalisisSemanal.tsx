@@ -374,7 +374,7 @@ export const AnalisisSemanal: React.FC = () => {
             return;
         }
 
-        const matchDate = data.next_match.fecha;
+        
 
         // Las sesiones ya guardadas quedan bloqueadas: SCOUT IA no las simula.
         // El entrenador puede seleccionar únicamente días todavía libres.

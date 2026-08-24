@@ -235,10 +235,6 @@ export const Dashboard: React.FC = () => {
         training => training.level === 'ALTA'
     ).length;
 
-    const visibleModerateCount = visibleTrainings.filter(
-        training => training.level === 'MODERADA'
-    ).length;
-
     const visibleLowCount = visibleTrainings.filter(
         training => training.level === 'BAJA'
     ).length;
