@@ -5,7 +5,6 @@ import {
     AlertTriangle,
     ArrowLeft,
     CalendarDays,
-    Check,
     Minus,
     Plus,
     RotateCcw,
@@ -524,53 +523,7 @@ export const AnalisisSemanal: React.FC = () => {
         }));
     };
 
-    const replaceExercise = (
-        fecha: string,
-        oldExerciseId: number,
-        newExerciseId: number
-    ) => {
-        if (!weeklyProposal) return;
 
-        const pool = weeklyProposal.days
-            .flatMap(day => day.proposal?.exercises || [])
-            .find(exercise => exercise.exercise_id === newExerciseId);
-
-        if (!pool) return;
-
-        updateProposalDay(fecha, proposal => ({
-            ...proposal,
-            exercises: proposal.exercises.map(exercise =>
-                exercise.exercise_id === oldExerciseId
-                    ? structuredClone(pool)
-                    : exercise
-            ),
-        }));
-    };
-
-    const addExercise = (fecha: string, exerciseId: number) => {
-        if (!weeklyProposal) return;
-
-        const pool = weeklyProposal.days
-            .flatMap(day => day.proposal?.exercises || [])
-            .find(exercise => exercise.exercise_id === exerciseId);
-
-        if (!pool) return;
-
-        updateProposalDay(fecha, proposal => {
-            if (
-                proposal.exercises.some(
-                    exercise => exercise.exercise_id === exerciseId
-                )
-            ) {
-                return proposal;
-            }
-
-            return {
-                ...proposal,
-                exercises: [...proposal.exercises, structuredClone(pool)],
-            };
-        });
-    };
 
     const resetProposalDay = (fecha: string) => {
         if (!originalWeeklyProposal) return;
@@ -595,15 +548,6 @@ export const AnalisisSemanal: React.FC = () => {
         });
     };
 
-    const exercisePool = weeklyProposal
-        ? Array.from(
-              new Map(
-                  weeklyProposal.days
-                      .flatMap(day => day.proposal?.exercises || [])
-                      .map(exercise => [exercise.exercise_id, exercise])
-              ).values()
-          )
-        : [];
 
 
     const openExercisePicker = async (
