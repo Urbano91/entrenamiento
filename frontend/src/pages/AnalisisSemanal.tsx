@@ -8,6 +8,7 @@ import {
     Minus,
     Plus,
     RotateCcw,
+    Save,
     Trash2,
     Search,
     X,
@@ -78,6 +79,7 @@ type WeeklyLoadResponse = {
     };
 
     trainings: WeeklyTraining[];
+    configured_training_dates: string[];
 
     next_match: NextMatch | null;
 
@@ -188,11 +190,19 @@ type TrainingProposalResponse = {
 
 type WeeklyProposalDay = {
     fecha: string;
-    tipo: 'ENTRENAMIENTO' | 'DESCANSO';
+    tipo: 'ENTRENAMIENTO' | 'DESCANSO' | 'CONFIGURADO';
+    locked?: boolean;
     role?: {
         code: string | null;
         label: string | null;
         reason: string | null;
+    };
+    existing_training?: {
+        entrenamiento_id: number;
+        nombre: string;
+        duracion_minutos: number | null;
+        score: number;
+        level: string;
     };
     proposal: TrainingProposalResponse['proposal'] | null;
 };
@@ -203,6 +213,19 @@ type EditableProposalDay = WeeklyProposalDay & {
 
 type EditableWeeklyProposalResponse = Omit<WeeklyProposalResponse, 'days'> & {
     days: EditableProposalDay[];
+};
+
+type SaveProposalResponse = {
+    status: string;
+    message: string;
+    created_count: number;
+    trainings: {
+        id: number;
+        fecha: string;
+        nombre: string;
+        duracion_minutos: number;
+        exercise_count: number;
+    }[];
 };
 
 type WeeklyProposalResponse = {
@@ -312,6 +335,19 @@ export const AnalisisSemanal: React.FC = () => {
         useState<Set<string>>(new Set());
 
 
+    const [reviewOpen, setReviewOpen] =
+        useState(false);
+
+    const [saveConfirmOpen, setSaveConfirmOpen] =
+        useState(false);
+
+    const [savingProposal, setSavingProposal] =
+        useState(false);
+
+    const [saveSuccess, setSaveSuccess] =
+        useState<SaveProposalResponse | null>(null);
+
+
     useEffect(() => {
         api.get<WeeklyLoadResponse>(
             '/training-load/week',
@@ -384,9 +420,8 @@ export const AnalisisSemanal: React.FC = () => {
 
 
     const toggleTrainingDate = (fecha: string) => {
-        const alreadyConfigured = data?.trainings.some(
-            training => training.fecha === fecha
-        );
+        const alreadyConfigured =
+            data?.configured_training_dates.includes(fecha) ?? false;
 
         if (alreadyConfigured) return;
 
@@ -723,6 +758,68 @@ export const AnalisisSemanal: React.FC = () => {
         return result;
     })();
 
+
+
+    const savableProposalDays =
+        weeklyProposal?.days.filter(
+            day =>
+                day.tipo === 'ENTRENAMIENTO' &&
+                day.proposal &&
+                day.proposal.exercises.length > 0 &&
+                !(data?.configured_training_dates.includes(day.fecha) ?? false)
+        ) ?? [];
+
+    const saveWeeklyProposal = async () => {
+        if (savableProposalDays.length === 0) return;
+
+        setSavingProposal(true);
+        setProposalError('');
+
+        try {
+            const result = await api.post<SaveProposalResponse>(
+                '/training-load/weekly-proposal/save',
+                {
+                    sessions: savableProposalDays.map(day => {
+                        const proposal = day.proposal!;
+
+                        return {
+                            fecha: day.fecha,
+                            nombre:
+                                proposal.role?.label
+                                    ? `SCOUT IA · ${proposal.role.label}`
+                                    : 'Sesión SCOUT IA',
+                            duracion_minutos: proposal.target.duration_minutes,
+                            objetivo_principal:
+                                proposal.context.desired_objectives.length > 0
+                                    ? proposal.context.desired_objectives.join(' · ')
+                                    : proposal.role?.label || null,
+                            observaciones:
+                                'Sesión propuesta por SCOUT IA y confirmada por el entrenador.',
+                            ejercicio_ids: proposal.exercises.map(
+                                exercise => exercise.exercise_id
+                            ),
+                        };
+                    }),
+                }
+            );
+
+            setSaveSuccess(result);
+            setSaveConfirmOpen(false);
+            setReviewOpen(false);
+            setWeeklyProposal(null);
+            setOriginalWeeklyProposal(null);
+
+        } catch (caught: unknown) {
+            setProposalError(
+                caught instanceof Error
+                    ? caught.message
+                    : 'No se pudo guardar la propuesta en el calendario.'
+            );
+            setSaveConfirmOpen(false);
+        } finally {
+            setSavingProposal(false);
+        }
+    };
 
 
     if (loading) {
@@ -1283,10 +1380,8 @@ export const AnalisisSemanal: React.FC = () => {
                                         {proposalDates.map(fecha => {
 
                                             const selected = selectedTrainingDates.includes(fecha);
-                                            const configuredTraining = data.trainings.find(
-                                                training => training.fecha === fecha
-                                            );
-                                            const locked = Boolean(configuredTraining);
+                                            const locked =
+                                                data.configured_training_dates.includes(fecha);
                                             const parsedDate = fromIso(fecha);
 
                                             return (
@@ -1380,16 +1475,70 @@ export const AnalisisSemanal: React.FC = () => {
 
                             <div className="divide-y divide-slate-200">
 
-                                {weeklyProposal.days
-                                    .filter(
-                                        day =>
-                                            !data.trainings.some(
-                                                training => training.fecha === day.fecha
-                                            )
-                                    )
-                                    .map(day => {
+                                {weeklyProposal.days.map(day => {
 
                                     const parsedDate = fromIso(day.fecha);
+
+                                    if (day.tipo === 'CONFIGURADO') {
+                                        const existing = day.existing_training;
+                                        const configuredStyle = loadStyle(
+                                            existing?.level || 'MODERADA'
+                                        );
+
+                                        return (
+                                            <div
+                                                key={day.fecha}
+                                                className="grid gap-3 bg-emerald-50/60 p-4 sm:grid-cols-[90px_minmax(0,1fr)_auto] sm:items-center"
+                                            >
+                                                <div>
+                                                    <p className="text-sm font-black uppercase text-emerald-800">
+                                                        {parsedDate.toLocaleDateString('es-ES', { weekday: 'short' })}
+                                                    </p>
+                                                    <p className="text-xs font-semibold text-emerald-700">
+                                                        {parsedDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                                                    </p>
+                                                </div>
+
+                                                <div className="min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <Shield className="h-4 w-4 shrink-0 text-emerald-700" />
+                                                        <p className="font-black text-slate-950">
+                                                            {existing?.nombre || 'Entrenamiento configurado'}
+                                                        </p>
+                                                        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-black uppercase text-emerald-800 ring-1 ring-emerald-200">
+                                                            BLOQUEADO
+                                                        </span>
+                                                    </div>
+
+                                                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                                                        {existing?.duracion_minutos || 0} min · ya guardado en calendario
+                                                    </p>
+                                                </div>
+
+                                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                                    {existing && (
+                                                        <>
+                                                            <span className="text-xl font-black text-slate-950">
+                                                                {Math.round(existing.score)}
+                                                            </span>
+                                                            <span className="text-xs font-bold text-slate-400">
+                                                                /100
+                                                            </span>
+                                                            <span className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${configuredStyle.badge}`}>
+                                                                {existing.level}
+                                                            </span>
+                                                            <Link
+                                                                to={`/entrenamientos/${existing.entrenamiento_id}`}
+                                                                className="ml-2 text-sm font-bold text-primary-700 hover:text-primary-900"
+                                                            >
+                                                                Ver planificación →
+                                                            </Link>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
 
                                     if (day.tipo === 'DESCANSO') {
                                         return (
@@ -1797,32 +1946,267 @@ export const AnalisisSemanal: React.FC = () => {
 
                             <button
                                 type="button"
-                                onClick={() => {
-                                    document
-                                        .getElementById('scout-ia-weekly-proposal')
-                                        ?.scrollIntoView({ behavior: 'smooth' });
-                                }}
-                                className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                                onClick={() => setReviewOpen(true)}
+                                disabled={savableProposalDays.length === 0}
+                                className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 Revisar propuesta
                             </button>
 
                             <button
                                 type="button"
-                                disabled
-                                title="La acción de guardado será el siguiente paso."
-                                className="min-h-11 cursor-not-allowed rounded-xl bg-primary-600 px-5 py-2 text-sm font-black text-white opacity-50"
+                                onClick={() => setSaveConfirmOpen(true)}
+                                disabled={savableProposalDays.length === 0 || savingProposal}
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary-700 px-5 py-2 text-sm font-black text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                Guardar propuesta en calendario
+                                <Save className="h-4 w-4" />
+                                Guardar en calendario
                             </button>
 
                         </div>
 
 
                         <p className="mb-5 text-center text-xs font-semibold text-slate-500">
-                            Borrador: todavía no crea ni modifica entrenamientos. El entrenador decide.
+                            Borrador: solo se guardará cuando tú lo confirmes.
                         </p>
 
+                    </div>
+                )}
+
+                {reviewOpen && weeklyProposal && (
+                    <div
+                        className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/55 p-3 sm:p-6"
+                        onClick={() => setReviewOpen(false)}
+                    >
+                        <div
+                            className="mx-auto flex max-h-[calc(100dvh-1.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-3rem)]"
+                            onClick={event => event.stopPropagation()}
+                        >
+                            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 p-4 sm:p-5">
+                                <div>
+                                    <p className="text-xs font-black uppercase tracking-wider text-primary-700">
+                                        Revisión final
+                                    </p>
+                                    <h2 className="mt-1 text-xl font-black text-slate-950">
+                                        {savableProposalDays.length}{' '}
+                                        {savableProposalDays.length === 1
+                                            ? 'sesión nueva'
+                                            : 'sesiones nuevas'}
+                                    </h2>
+                                    <p className="mt-1 text-sm text-slate-500">
+                                        Esto es lo que se añadirá a tu calendario.
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setReviewOpen(false)}
+                                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+
+                            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+                                <div className="space-y-3">
+                                    {savableProposalDays.map(day => {
+                                        const proposal = day.proposal!;
+
+                                        return (
+                                            <div
+                                                key={`review-${day.fecha}`}
+                                                className="rounded-xl border border-slate-200 bg-white p-4"
+                                            >
+                                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                                    <div>
+                                                        <p className="text-xs font-black uppercase tracking-wider text-primary-700">
+                                                            {fromIso(day.fecha).toLocaleDateString(
+                                                                'es-ES',
+                                                                {
+                                                                    weekday: 'long',
+                                                                    day: 'numeric',
+                                                                    month: 'long',
+                                                                }
+                                                            )}
+                                                        </p>
+
+                                                        <h3 className="mt-1 font-black text-slate-950">
+                                                            {proposal.role?.label || 'Sesión SCOUT IA'}
+                                                        </h3>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <span className={`rounded-full px-2.5 py-1 text-xs font-black ring-1 ${loadStyle(proposal.estimated_proposal.level).badge}`}>
+                                                            {Math.round(proposal.estimated_proposal.score)}/100 · {proposal.estimated_proposal.level}
+                                                        </span>
+
+                                                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-700 ring-1 ring-slate-200">
+                                                            {proposal.target.duration_minutes} min
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-3 space-y-2">
+                                                    {proposal.exercises.map((exercise, index) => (
+                                                        <button
+                                                            key={`review-${day.fecha}-${exercise.exercise_id}-${index}`}
+                                                            type="button"
+                                                            onClick={() => setSelectedExerciseId(exercise.exercise_id)}
+                                                            className="flex w-full items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-left hover:bg-primary-50"
+                                                        >
+                                                            <span className="min-w-0 text-sm font-bold text-slate-800">
+                                                                {index + 1}. {exercise.name}
+                                                            </span>
+
+                                                            <span className="shrink-0 text-xs font-black text-primary-700">
+                                                                Ver ficha
+                                                            </span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="flex shrink-0 flex-col gap-2 border-t border-slate-200 bg-slate-50 p-4 sm:flex-row sm:justify-end">
+                                <button
+                                    type="button"
+                                    onClick={() => setReviewOpen(false)}
+                                    className="min-h-10 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                                >
+                                    Seguir editando
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setReviewOpen(false);
+                                        setSaveConfirmOpen(true);
+                                    }}
+                                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary-700 px-4 py-2 text-sm font-black text-white hover:bg-primary-800"
+                                >
+                                    <Save className="h-4 w-4" />
+                                    Guardar en calendario
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {saveConfirmOpen && (
+                    <div
+                        className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4"
+                        onClick={() => !savingProposal && setSaveConfirmOpen(false)}
+                    >
+                        <div
+                            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"
+                            onClick={event => event.stopPropagation()}
+                        >
+                            <p className="text-xs font-black uppercase tracking-wider text-primary-700">
+                                Confirmar planificación
+                            </p>
+
+                            <h2 className="mt-2 text-xl font-black text-slate-950">
+                                Añadir {savableProposalDays.length}{' '}
+                                {savableProposalDays.length === 1
+                                    ? 'sesión'
+                                    : 'sesiones'} al calendario
+                            </h2>
+
+                            <p className="mt-2 text-sm leading-6 text-slate-600">
+                                A partir de ese momento serán entrenamientos normales.
+                                Podrás modificarlos desde su planificación, pero SCOUT IA
+                                ya no los regenerará.
+                            </p>
+
+                            <div className="mt-4 space-y-2">
+                                {savableProposalDays.map(day => (
+                                    <div
+                                        key={`confirm-${day.fecha}`}
+                                        className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"
+                                    >
+                                        <span className="text-sm font-bold capitalize text-slate-800">
+                                            {fromIso(day.fecha).toLocaleDateString(
+                                                'es-ES',
+                                                {
+                                                    weekday: 'short',
+                                                    day: 'numeric',
+                                                    month: 'short',
+                                                }
+                                            )}
+                                        </span>
+
+                                        <span className="text-xs font-bold text-slate-500">
+                                            {day.proposal?.target.duration_minutes} min
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                                <button
+                                    type="button"
+                                    disabled={savingProposal}
+                                    onClick={() => setSaveConfirmOpen(false)}
+                                    className="min-h-10 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 disabled:opacity-50"
+                                >
+                                    Cancelar
+                                </button>
+
+                                <button
+                                    type="button"
+                                    disabled={savingProposal}
+                                    onClick={saveWeeklyProposal}
+                                    className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary-700 px-4 py-2 text-sm font-black text-white hover:bg-primary-800 disabled:cursor-wait disabled:opacity-60"
+                                >
+                                    {savingProposal ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Save className="h-4 w-4" />
+                                    )}
+                                    {savingProposal
+                                        ? 'Guardando...'
+                                        : 'Confirmar y guardar'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {saveSuccess && (
+                    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/55 p-4">
+                        <div className="w-full max-w-md rounded-2xl bg-white p-5 text-center shadow-2xl">
+                            <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-100 text-emerald-700">
+                                <Save className="h-6 w-6" />
+                            </div>
+
+                            <h2 className="mt-4 text-xl font-black text-slate-950">
+                                Planificación guardada
+                            </h2>
+
+                            <p className="mt-2 text-sm leading-6 text-slate-600">
+                                {saveSuccess.message}
+                            </p>
+
+                            <div className="mt-5 grid gap-2">
+                                <Link
+                                    to="/dashboard"
+                                    className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary-700 px-4 py-2 text-sm font-black text-white hover:bg-primary-800"
+                                >
+                                    Ver en Agenda
+                                </Link>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setSaveSuccess(null)}
+                                    className="min-h-10 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700"
+                                >
+                                    Cerrar
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
 

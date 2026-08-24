@@ -12,10 +12,18 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field
 
 from app.api.auth import get_current_user
 from app.db.database import get_db
-from app.models.models import Entrenamiento, Partido, Usuario
+from app.models.models import (
+    Ejercicio,
+    Entrenamiento,
+    EntrenamientoEjercicio,
+    Partido,
+    PerfilEntrenador,
+    Usuario,
+)
 from app.services.exercise_recommender import select_exercise_candidates
 from app.services.permissions import require_trainer
 from app.services.training_load import estimate_training_load
@@ -28,6 +36,21 @@ router = APIRouter(
     tags=["Training Load"],
 )
 
+
+
+
+
+class CalendarProposalSession(BaseModel):
+    fecha: date
+    nombre: str = Field(min_length=1, max_length=180)
+    duracion_minutos: int = Field(ge=20, le=180)
+    objetivo_principal: str | None = None
+    observaciones: str | None = None
+    ejercicio_ids: list[int] = Field(default_factory=list)
+
+
+class CalendarProposalSaveRequest(BaseModel):
+    sessions: list[CalendarProposalSession] = Field(min_length=1, max_length=14)
 
 
 def _agenda_period(reference_date: date) -> tuple[date, date]:
@@ -527,6 +550,29 @@ def get_week_training_load(
             ).days,
         }
 
+    # Fechas ya configuradas hasta el próximo partido.
+    # IMPORTANTE: no forman parte necesariamente del periodo de carga visible.
+    # Ejemplo: si hoy es martes, la carga puede terminar el domingo,
+    # pero un entrenamiento del lunes previo al partido del martes debe
+    # seguir apareciendo como CONFIGURADO/BLOQUEADO en el generador IA.
+    configured_until_match_query = (
+        db.query(Entrenamiento.fecha)
+        .filter(
+            Entrenamiento.usuario_id == current_user.id,
+            Entrenamiento.fecha >= reference_date,
+        )
+    )
+
+    if next_match:
+        configured_until_match_query = configured_until_match_query.filter(
+            Entrenamiento.fecha < next_match.fecha,
+        )
+
+    configured_training_dates = sorted({
+        item[0].isoformat()
+        for item in configured_until_match_query.all()
+    })
+
     scores = [
         training["score"]
         for training in analysed_trainings
@@ -631,6 +677,7 @@ def get_week_training_load(
             "low_load_sessions": low_count,
         },
         "trainings": analysed_trainings,
+        "configured_training_dates": configured_training_dates,
         "next_match": next_match_data,
         "recent_14_days": {
             "training_count": len(recent_analysis),
@@ -638,6 +685,159 @@ def get_week_training_load(
             "level": _load_level(recent_average_score),
         },
         "alerts": alerts,
+    }
+
+
+
+
+@router.post("/weekly-proposal/save")
+def save_weekly_training_proposal(
+    payload: CalendarProposalSaveRequest,
+    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Convierte el borrador aceptado de SCOUT IA en entrenamientos reales.
+
+    Reglas:
+    - no crea sesiones en el pasado;
+    - no sobrescribe días que ya tengan entrenamiento;
+    - valida todos los ejercicios antes de escribir;
+    - guarda todo en una única transacción.
+    """
+    require_trainer(db, current_user)
+
+    profile = (
+        db.query(PerfilEntrenador)
+        .filter(PerfilEntrenador.usuario_id == current_user.id)
+        .first()
+    )
+
+    if profile is None or profile.temporada_actual_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail="El entrenador no tiene una temporada actual configurada.",
+        )
+
+    today = date.today()
+
+    requested_dates = [item.fecha for item in payload.sessions]
+
+    if len(requested_dates) != len(set(requested_dates)):
+        raise HTTPException(
+            status_code=422,
+            detail="La propuesta contiene más de una sesión para la misma fecha.",
+        )
+
+    past_dates = sorted({value for value in requested_dates if value < today})
+    if past_dates:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "No se pueden guardar sesiones en fechas pasadas: "
+                + ", ".join(value.isoformat() for value in past_dates)
+            ),
+        )
+
+    existing_dates = {
+        item[0]
+        for item in (
+            db.query(Entrenamiento.fecha)
+            .filter(
+                Entrenamiento.usuario_id == current_user.id,
+                Entrenamiento.temporada_id == profile.temporada_actual_id,
+                Entrenamiento.fecha.in_(requested_dates),
+            )
+            .all()
+        )
+    }
+
+    if existing_dates:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Hay días que ya tienen un entrenamiento guardado: "
+                + ", ".join(value.isoformat() for value in sorted(existing_dates))
+                + ". Revísalos desde su planificación."
+            ),
+        )
+
+    requested_exercise_ids = {
+        exercise_id
+        for session in payload.sessions
+        for exercise_id in session.ejercicio_ids
+    }
+
+    if requested_exercise_ids:
+        existing_exercise_ids = {
+            item[0]
+            for item in (
+                db.query(Ejercicio.id)
+                .filter(Ejercicio.id.in_(requested_exercise_ids))
+                .all()
+            )
+        }
+
+        missing_ids = sorted(requested_exercise_ids - existing_exercise_ids)
+        if missing_ids:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Hay ejercicios que ya no están disponibles: "
+                    + ", ".join(str(value) for value in missing_ids)
+                ),
+            )
+
+    created: list[dict] = []
+
+    try:
+        for session_data in sorted(payload.sessions, key=lambda item: item.fecha):
+            training = Entrenamiento(
+                usuario_id=current_user.id,
+                temporada_id=profile.temporada_actual_id,
+                fecha=session_data.fecha,
+                nombre=session_data.nombre.strip(),
+                duracion_minutos=session_data.duracion_minutos,
+                objetivo_principal=session_data.objetivo_principal,
+                observaciones=session_data.observaciones,
+            )
+
+            db.add(training)
+            db.flush()
+
+            for order, exercise_id in enumerate(session_data.ejercicio_ids):
+                db.add(
+                    EntrenamientoEjercicio(
+                        entrenamiento_id=training.id,
+                        ejercicio_id=exercise_id,
+                        orden=order,
+                    )
+                )
+
+            created.append(
+                {
+                    "id": training.id,
+                    "fecha": training.fecha.isoformat(),
+                    "nombre": training.nombre,
+                    "duracion_minutos": training.duracion_minutos,
+                    "exercise_count": len(session_data.ejercicio_ids),
+                }
+            )
+
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
+
+    return {
+        "status": "SAVED",
+        "message": (
+            f"{len(created)} "
+            f"{'sesión añadida' if len(created) == 1 else 'sesiones añadidas'} "
+            "al calendario."
+        ),
+        "created_count": len(created),
+        "trainings": created,
     }
 
 

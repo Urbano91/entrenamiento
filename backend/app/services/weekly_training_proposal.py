@@ -96,10 +96,12 @@ def build_weekly_training_proposal(
     user_id: int,
     reference_date: date,
     training_dates: list[date],
+    existing_training_dates: set[date] | None = None,
     desired_objectives: list[str] | None = None,
     exercise_count: int = 4,
 ) -> dict[str, Any]:
     desired_objectives = desired_objectives or []
+    existing_training_dates = existing_training_dates or set()
 
     next_match = (
         db.query(Partido)
@@ -168,12 +170,56 @@ def build_weekly_training_proposal(
     used_exercise_ids: set[int] = set()
     days: list[dict[str, Any]] = []
 
+    existing_by_date = {
+        training.fecha: training
+        for training in (
+            db.query(Entrenamiento)
+            .filter(
+                Entrenamiento.usuario_id == user_id,
+                Entrenamiento.fecha >= reference_date,
+                Entrenamiento.fecha < match_date,
+            )
+            .order_by(Entrenamiento.fecha.asc())
+            .all()
+        )
+    }
+
     cursor = reference_date
     while cursor < match_date:
+        existing_training = existing_by_date.get(cursor)
+
+        if cursor in existing_training_dates and existing_training is not None:
+            analysed_existing = _analyse_training(existing_training)
+
+            days.append({
+                "fecha": cursor.isoformat(),
+                "tipo": "CONFIGURADO",
+                "locked": True,
+                "role": {
+                    "code": "CONFIGURADO",
+                    "label": "Entrenamiento configurado",
+                    "reason": (
+                        "Esta sesión ya está guardada en el calendario. "
+                        "SCOUT IA la tiene en cuenta, pero no la modifica."
+                    ),
+                },
+                "existing_training": {
+                    "entrenamiento_id": existing_training.id,
+                    "nombre": existing_training.nombre,
+                    "duracion_minutos": existing_training.duracion_minutos,
+                    "score": analysed_existing["score"],
+                    "level": analysed_existing["level"],
+                },
+                "proposal": None,
+            })
+            cursor += timedelta(days=1)
+            continue
+
         if cursor not in valid_training_dates:
             days.append({
                 "fecha": cursor.isoformat(),
                 "tipo": "DESCANSO",
+                "locked": False,
                 "role": {
                     "code": "DESCANSO",
                     "label": "Descanso",

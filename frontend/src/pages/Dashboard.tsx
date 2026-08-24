@@ -350,10 +350,6 @@ export const Dashboard: React.FC = () => {
 
                         <div className="flex items-center gap-3">
 
-                            <Badge className="bg-primary-100 text-primary-800 ring-primary-200">
-                                BETA
-                            </Badge>
-
                             <Link
                                 to={`/analisis-semanal?fecha=${todayIso}`}
                                 className="group flex items-center gap-1 text-sm font-bold text-primary-700 transition hover:text-primary-900"
