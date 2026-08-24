@@ -20,6 +20,7 @@ from app.services.exercise_recommender import select_exercise_candidates
 from app.services.permissions import require_trainer
 from app.services.training_load import estimate_training_load
 from app.services.training_proposal import build_training_proposal
+from app.services.weekly_training_proposal import build_weekly_training_proposal
 
 
 router = APIRouter(
@@ -79,7 +80,7 @@ def _analyse_training(entrenamiento: Entrenamiento) -> dict:
 def get_exercise_candidates(
     objetivo: list[str] | None = Query(default=None),
     carga_objetivo: float | None = Query(default=None, ge=0, le=100),
-    limite: int = Query(default=12, ge=1, le=50),
+    limite: int = Query(default=12, ge=1, le=500),
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -250,6 +251,166 @@ def get_training_proposal(
         },
         "proposal": proposal,
     }
+
+
+
+@router.get("/weekly-proposal")
+def get_weekly_training_proposal(
+    fecha: date | None = Query(default=None),
+    dias_entreno: str | None = Query(
+        default=None,
+        description="Fechas separadas por comas. Ejemplo: 2026-08-24,2026-08-26",
+    ),
+    objetivo: list[str] | None = Query(default=None),
+    ejercicios: int = Query(default=4, ge=1, le=6),
+    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_trainer(db, current_user)
+
+    reference_date = fecha or date.today()
+
+    training_dates: list[date] = []
+
+    if dias_entreno:
+        for raw_value in dias_entreno.split(","):
+            value = raw_value.strip()
+            if not value:
+                continue
+
+            try:
+                training_dates.append(date.fromisoformat(value))
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Fecha de entrenamiento no válida: {value}",
+                ) from exc
+
+    return build_weekly_training_proposal(
+        db,
+        user_id=current_user.id,
+        reference_date=reference_date,
+        training_dates=training_dates,
+        desired_objectives=objetivo or [],
+        exercise_count=ejercicios,
+    )
+
+
+
+@router.get("/recalculate-session")
+def recalculate_training_session(
+    fecha: date = Query(...),
+    carga_objetivo: float = Query(..., ge=0, le=100),
+    duracion: int = Query(..., ge=20, le=150),
+    ejercicios: int = Query(default=4, ge=1, le=6),
+    objetivo: list[str] | None = Query(default=None),
+    role_code: str | None = Query(default=None),
+    role_label: str | None = Query(default=None),
+    role_reason: str | None = Query(default=None),
+    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    require_trainer(db, current_user)
+
+    week_start = fecha - timedelta(days=fecha.weekday())
+    week_end = week_start + timedelta(days=6)
+
+    weekly_trainings = (
+        db.query(Entrenamiento)
+        .filter(
+            Entrenamiento.usuario_id == current_user.id,
+            Entrenamiento.fecha >= week_start,
+            Entrenamiento.fecha <= week_end,
+        )
+        .all()
+    )
+
+    weekly_analysis = [
+        _analyse_training(training)
+        for training in weekly_trainings
+    ]
+
+    weekly_scores = [
+        item["score"]
+        for item in weekly_analysis
+        if item["level"] != "SIN DATOS"
+    ]
+
+    weekly_average_score = (
+        round(sum(weekly_scores) / len(weekly_scores), 1)
+        if weekly_scores
+        else None
+    )
+
+    high_load_sessions = sum(
+        1
+        for item in weekly_analysis
+        if item["level"] == "ALTA"
+    )
+
+    recent_start = fecha - timedelta(days=14)
+
+    recent_trainings = (
+        db.query(Entrenamiento)
+        .filter(
+            Entrenamiento.usuario_id == current_user.id,
+            Entrenamiento.fecha >= recent_start,
+            Entrenamiento.fecha < fecha,
+        )
+        .all()
+    )
+
+    recent_analysis = [
+        _analyse_training(training)
+        for training in recent_trainings
+    ]
+
+    recent_scores = [
+        item["score"]
+        for item in recent_analysis
+        if item["level"] != "SIN DATOS"
+    ]
+
+    recent_average_score = (
+        round(sum(recent_scores) / len(recent_scores), 1)
+        if recent_scores
+        else None
+    )
+
+    next_match = (
+        db.query(Partido)
+        .filter(
+            Partido.usuario_id == current_user.id,
+            Partido.fecha >= fecha,
+        )
+        .order_by(
+            Partido.fecha.asc(),
+            Partido.hora.asc(),
+        )
+        .first()
+    )
+
+    days_to_match = (
+        (next_match.fecha - fecha).days
+        if next_match
+        else None
+    )
+
+    return build_training_proposal(
+        db,
+        user_id=current_user.id,
+        days_to_match=days_to_match,
+        weekly_average_score=weekly_average_score,
+        recent_average_score=recent_average_score,
+        high_load_sessions=high_load_sessions,
+        desired_objectives=objetivo or [],
+        exercise_count=ejercicios,
+        target_load_override=carga_objetivo,
+        duration_override=duracion,
+        session_role=role_code,
+        session_role_label=role_label,
+        session_role_reason=role_reason,
+    )
 
 
 @router.get("/week")
