@@ -54,9 +54,9 @@ def _best_combination(
             training_duration_minutes=duration_minutes,
         )
 
-    own = [x for x in candidates if x.get("source") == "PROPIO"][:12]
-    fav = [x for x in candidates if x.get("source") == "FAVORITO"][:12]
-    lib = [x for x in candidates if x.get("source") == "BIBLIOTECA"][:12]
+    own = [x for x in candidates if x.get("source") == "PROPIO"][:6]
+    fav = [x for x in candidates if x.get("source") == "FAVORITO"][:6]
+    lib = [x for x in candidates if x.get("source") == "BIBLIOTECA"][:6]
 
     pool = []
     seen = set()
@@ -65,8 +65,22 @@ def _best_combination(
             seen.add(item["exercise_id"])
             pool.append(item)
 
-    max_count = min(requested_count, len(pool))
-    min_count = 2 if max_count >= 2 else 1
+    max_count = min(requested_count, len(pool), 6)
+    min_count = 1
+
+    # El número de tareas no es fijo: se orienta por la duración de la sesión.
+    if duration_minutes <= 35:
+        ideal_count = 2
+    elif duration_minutes <= 55:
+        ideal_count = 3
+    elif duration_minutes <= 75:
+        ideal_count = 4
+    elif duration_minutes <= 95:
+        ideal_count = 5
+    else:
+        ideal_count = 6
+
+    ideal_count = max(1, min(ideal_count, max_count))
 
     best = None
     best_estimate = None
@@ -78,8 +92,22 @@ def _best_combination(
             gap = abs(estimate["score"] - target_score)
             source_penalty = sum(SOURCE_PENALTY.get(x.get("source"), 8.0) for x in group)
             objective_bonus = sum(x.get("objective_match_count", 0) for x in group) * 2
-            count_penalty = abs(requested_count - count) * 3
-            rank = gap * 10 + source_penalty - objective_bonus + count_penalty
+            # Evita que el motor elija siempre 2 ejercicios solo porque su
+            # media de carga se acerca al objetivo. La duración también manda.
+            count_penalty = abs(ideal_count - count) * 14
+
+            work_minutes = float(estimate.get("total_work_minutes") or 0)
+            expected_work = max(duration_minutes * 0.55, 1)
+            work_gap = abs(work_minutes - expected_work) / expected_work
+            duration_coverage_penalty = min(work_gap, 1.5) * 12
+
+            rank = (
+                gap * 10
+                + source_penalty
+                - objective_bonus
+                + count_penalty
+                + duration_coverage_penalty
+            )
 
             if best_rank is None or rank < best_rank:
                 best_rank = rank

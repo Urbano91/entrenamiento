@@ -29,6 +29,35 @@ router = APIRouter(
 )
 
 
+
+def _agenda_period(reference_date: date) -> tuple[date, date]:
+    """Periodo visible de agenda.
+
+    - Lunes-viernes: desde hoy hasta el domingo de la misma semana.
+    - Sábado: desde hoy hasta el domingo de la semana siguiente.
+    - Domingo: desde hoy hasta el domingo siguiente.
+    """
+    weekday = reference_date.weekday()  # lunes=0 ... domingo=6
+
+    if weekday == 5:  # sábado
+        return reference_date, reference_date + timedelta(days=8)
+
+    if weekday == 6:  # domingo
+        return reference_date, reference_date + timedelta(days=7)
+
+    return reference_date, reference_date + timedelta(days=6 - weekday)
+
+
+def _load_level(score: float | None) -> str:
+    if score is None:
+        return "SIN DATOS"
+    if score < 40:
+        return "BAJA"
+    if score < 70:
+        return "MODERADA"
+    return "ALTA"
+
+
 def _training_exercises(entrenamiento: Entrenamiento) -> list[dict]:
     exercises = []
 
@@ -286,6 +315,25 @@ def get_weekly_training_proposal(
                     detail=f"Fecha de entrenamiento no válida: {value}",
                 ) from exc
 
+    existing_training_dates = {
+        item[0]
+        for item in (
+            db.query(Entrenamiento.fecha)
+            .filter(
+                Entrenamiento.usuario_id == current_user.id,
+                Entrenamiento.fecha >= reference_date,
+            )
+            .all()
+        )
+    }
+
+    # Una sesión ya guardada pertenece al entrenador: SCOUT IA no la regenera.
+    training_dates = [
+        training_date
+        for training_date in training_dates
+        if training_date not in existing_training_dates
+    ]
+
     return build_weekly_training_proposal(
         db,
         user_id=current_user.id,
@@ -426,8 +474,7 @@ def get_week_training_load(
 
     reference_date = fecha or date.today()
 
-    week_start = reference_date - timedelta(days=reference_date.weekday())
-    week_end = week_start + timedelta(days=6)
+    week_start, week_end = _agenda_period(reference_date)
 
     trainings = (
         db.query(Entrenamiento)
@@ -519,7 +566,7 @@ def get_week_training_load(
 
     if high_count >= 2:
         alerts.append(
-            f"Hay {high_count} sesiones de carga alta planificadas esta semana."
+            f"Hay {high_count} sesiones de carga alta planificadas en este periodo."
         )
 
     if next_match:
@@ -538,7 +585,7 @@ def get_week_training_load(
 
     if not alerts and analysed_trainings:
         alerts.append(
-            "No se han detectado alertas básicas de distribución de carga esta semana."
+            "No se han detectado alertas básicas de distribución de carga en este periodo."
         )
 
     recent_start = reference_date - timedelta(days=14)
@@ -588,6 +635,7 @@ def get_week_training_load(
         "recent_14_days": {
             "training_count": len(recent_analysis),
             "average_score": recent_average_score,
+            "level": _load_level(recent_average_score),
         },
         "alerts": alerts,
     }

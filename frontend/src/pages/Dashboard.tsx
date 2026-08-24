@@ -37,6 +37,24 @@ const fromIso = (value: string) =>
     new Date(`${value}T00:00:00`);
 
 
+const addDays = (date: Date, amount: number) => {
+    const result = new Date(date);
+    result.setDate(result.getDate() + amount);
+    return result;
+};
+
+const agendaEndDate = (today: Date) => {
+    // De lunes a viernes: mostramos desde hoy hasta el domingo de esta semana.
+    // Sábado o domingo: mostramos desde hoy hasta el domingo de la semana siguiente.
+    const day = today.getDay(); // 0 domingo, 1 lunes ... 6 sábado
+
+    if (day === 6) return addDays(today, 8);
+    if (day === 0) return addDays(today, 7);
+
+    return addDays(today, 7 - day);
+};
+
+
 type WeeklyTraining = {
     entrenamiento_id: number;
     nombre: string;
@@ -98,15 +116,15 @@ const loadLevel = (score: number | null) => {
 const loadStyle = (level: string) => {
     if (level === 'ALTA') {
         return {
-            badge: 'bg-orange-100 text-orange-800 ring-orange-200',
-            bar: 'bg-orange-500',
+            badge: 'bg-red-100 text-red-800 ring-red-200',
+            bar: 'bg-red-500',
         };
     }
 
     if (level === 'MODERADA') {
         return {
-            badge: 'bg-amber-100 text-amber-800 ring-amber-200',
-            bar: 'bg-amber-500',
+            badge: 'bg-orange-100 text-orange-800 ring-orange-200',
+            bar: 'bg-orange-500',
         };
     }
 
@@ -122,6 +140,8 @@ export const Dashboard: React.FC = () => {
 
     const today = useMemo(() => new Date(), []);
     const todayIso = isoDate(today);
+    const agendaEnd = useMemo(() => agendaEndDate(today), [today]);
+    const agendaEndIso = isoDate(agendaEnd);
 
     const [perfil, setPerfil] = useState<Perfil | null>(null);
     const [agenda, setAgenda] = useState<AgendaDia[]>([]);
@@ -141,7 +161,7 @@ export const Dashboard: React.FC = () => {
                 '/planificaciones/agenda',
                 {
                     desde: todayIso,
-                    limite: 7,
+                    limite: 16,
                 }
             ),
 
@@ -166,12 +186,16 @@ export const Dashboard: React.FC = () => {
         ])
             .then(([profile, upcomingDays]) => {
                 setPerfil(profile);
-                setAgenda(upcomingDays);
+                setAgenda(
+                    upcomingDays.filter(
+                        day => day.fecha >= todayIso && day.fecha <= agendaEndIso
+                    )
+                );
             })
             .catch(() => {
                 setAgenda([]);
             });
-    }, [todayIso]);
+    }, [todayIso, agendaEndIso]);
 
 
     const greeting =
@@ -182,14 +206,45 @@ export const Dashboard: React.FC = () => {
                 : 'Buenas noches';
 
 
+    const visibleTrainings =
+        weeklyLoad?.trainings.filter(
+            training =>
+                training.fecha >= todayIso &&
+                training.fecha <= agendaEndIso
+        ) ?? [];
+
+    const visibleScores = visibleTrainings.map(training => training.score);
+
     const averageScore =
-        weeklyLoad?.summary.average_score ?? null;
+        visibleScores.length > 0
+            ? Math.round(
+                  (visibleScores.reduce((sum, score) => sum + score, 0) /
+                      visibleScores.length) *
+                      10
+              ) / 10
+            : null;
 
-    const currentLevel =
-        loadLevel(averageScore);
+    const visibleTrainingCount = visibleTrainings.length;
 
-    const currentStyle =
-        loadStyle(currentLevel);
+    const visibleTotalMinutes = visibleTrainings.reduce(
+        (sum, training) => sum + (training.duracion_minutos || 0),
+        0
+    );
+
+    const visibleHighCount = visibleTrainings.filter(
+        training => training.level === 'ALTA'
+    ).length;
+
+    const visibleModerateCount = visibleTrainings.filter(
+        training => training.level === 'MODERADA'
+    ).length;
+
+    const visibleLowCount = visibleTrainings.filter(
+        training => training.level === 'BAJA'
+    ).length;
+
+    const currentLevel = loadLevel(averageScore);
+    const currentStyle = loadStyle(currentLevel);
 
 
     return (
@@ -276,12 +331,18 @@ export const Dashboard: React.FC = () => {
                             <div>
 
                                 <p className="text-xs font-bold uppercase tracking-wider text-primary-700">
-                                    SCOUT IA · ESTA SEMANA
+                                    SCOUT IA · PERIODO DE AGENDA
                                 </p>
 
                                 <h2 className="mt-1 text-lg font-bold text-slate-950">
                                     Análisis de carga
                                 </h2>
+
+                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                    {fromIso(todayIso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                                    {' – '}
+                                    {fromIso(agendaEndIso).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                                </p>
 
                             </div>
 
@@ -313,7 +374,7 @@ export const Dashboard: React.FC = () => {
                         <div>
 
                             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                                Carga semanal media
+                                Carga media del periodo
                             </p>
 
                             <div className="mt-3 flex flex-wrap items-end gap-3">
@@ -370,7 +431,7 @@ export const Dashboard: React.FC = () => {
                                 <div className="rounded-xl border border-slate-200 p-3">
 
                                     <p className="text-2xl font-black text-slate-950">
-                                        {weeklyLoad.summary.training_count}
+                                        {visibleTrainingCount}
                                     </p>
 
                                     <p className="mt-1 text-xs font-semibold text-slate-500">
@@ -382,7 +443,7 @@ export const Dashboard: React.FC = () => {
                                 <div className="rounded-xl border border-slate-200 p-3">
 
                                     <p className="text-2xl font-black text-slate-950">
-                                        {weeklyLoad.summary.total_minutes}
+                                        {visibleTotalMinutes}
                                     </p>
 
                                     <p className="mt-1 text-xs font-semibold text-slate-500">
@@ -396,16 +457,16 @@ export const Dashboard: React.FC = () => {
 
                             <div className="mt-4 flex flex-wrap gap-2">
 
-                                {weeklyLoad.summary.high_load_sessions > 0 && (
+                                {visibleHighCount > 0 && (
                                     <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800">
-                                        {weeklyLoad.summary.high_load_sessions}{' '}
+                                        {visibleHighCount}{' '}
                                         carga
-                                        {weeklyLoad.summary.high_load_sessions ===
+                                        {visibleHighCount ===
                                         1
                                             ? ''
                                             : 's'}{' '}
                                         alta
-                                        {weeklyLoad.summary.high_load_sessions ===
+                                        {visibleHighCount ===
                                         1
                                             ? ''
                                             : 's'}
@@ -427,7 +488,7 @@ export const Dashboard: React.FC = () => {
                                     </span>
                                 )}
 
-                                {weeklyLoad.summary.low_load_sessions > 0 && (
+                                {visibleLowCount > 0 && (
                                     <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
                                         {
                                             weeklyLoad.summary

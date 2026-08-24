@@ -16,6 +16,7 @@ import {
     Coffee,
     Dumbbell,
     Eye,
+    Loader2,
     Shield,
     Sparkles,
     Target,
@@ -83,6 +84,7 @@ type WeeklyLoadResponse = {
     recent_14_days: {
         training_count: number;
         average_score: number | null;
+        level?: string;
     };
 
     alerts: string[];
@@ -338,11 +340,9 @@ export const AnalisisSemanal: React.FC = () => {
 
         const matchDate = data.next_match.fecha;
 
-        const existingDates = data.trainings
-            .map(training => training.fecha)
-            .filter(fecha => fecha >= todayIso && fecha < matchDate);
-
-        setSelectedTrainingDates(Array.from(new Set(existingDates)));
+        // Las sesiones ya guardadas quedan bloqueadas: SCOUT IA no las simula.
+        // El entrenador puede seleccionar únicamente días todavía libres.
+        setSelectedTrainingDates([]);
     }, [data, todayIso]);
 
 
@@ -356,7 +356,7 @@ export const AnalisisSemanal: React.FC = () => {
                 {
                     fecha: todayIso,
                     dias_entreno: selectedTrainingDates.join(','),
-                    ejercicios: 4,
+                    ejercicios: 6,
                 }
             );
 
@@ -384,6 +384,12 @@ export const AnalisisSemanal: React.FC = () => {
 
 
     const toggleTrainingDate = (fecha: string) => {
+        const alreadyConfigured = data?.trainings.some(
+            training => training.fecha === fecha
+        );
+
+        if (alreadyConfigured) return;
+
         setWeeklyProposal(null);
         setOriginalWeeklyProposal(null);
 
@@ -640,7 +646,7 @@ export const AnalisisSemanal: React.FC = () => {
                     fecha,
                     carga_objetivo: session.target.load_score,
                     duracion: session.target.duration_minutes,
-                    ejercicios: Math.max(session.exercises.length, 3),
+                    ejercicios: 6,
                     role_code: session.role?.code || day.role?.code || undefined,
                     role_label: session.role?.label || day.role?.label || undefined,
                     role_reason: session.role?.reason || day.role?.reason || undefined,
@@ -830,7 +836,7 @@ export const AnalisisSemanal: React.FC = () => {
                     <Surface className="p-5">
 
                         <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                            Carga media semanal
+                            Carga media del periodo
                         </p>
 
                         <div className="mt-3 flex flex-wrap items-end gap-3">
@@ -1022,7 +1028,7 @@ export const AnalisisSemanal: React.FC = () => {
                         {data.trainings.length === 0 ? (
 
                             <div className="p-5 text-sm text-slate-500">
-                                No hay entrenamientos planificados esta semana.
+                                No hay entrenamientos planificados en este periodo.
                             </div>
 
                         ) : (
@@ -1187,9 +1193,25 @@ export const AnalisisSemanal: React.FC = () => {
 
                         <div className="rounded-xl border border-slate-200 p-4">
 
-                            <p className="text-3xl font-black text-slate-950">
-                                {data.recent_14_days.average_score ?? '—'}
-                            </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-3xl font-black text-slate-950">
+                                    {data.recent_14_days.average_score ?? '—'}
+                                </p>
+
+                                {data.recent_14_days.average_score !== null && (
+                                    <span
+                                        className={`rounded-full px-2.5 py-1 text-xs font-black ring-1 ${
+                                            loadStyle(
+                                                data.recent_14_days.level ||
+                                                levelFromScore(data.recent_14_days.average_score)
+                                            ).badge
+                                        }`}
+                                    >
+                                        {data.recent_14_days.level ||
+                                            levelFromScore(data.recent_14_days.average_score)}
+                                    </span>
+                                )}
+                            </div>
 
                             <p className="mt-1 text-sm font-semibold text-slate-500">
                                 carga media /100
@@ -1237,8 +1259,12 @@ export const AnalisisSemanal: React.FC = () => {
                                     disabled={proposalLoading || !data.next_match}
                                     className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-500 px-5 py-3 text-sm font-black text-white shadow-sm transition hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                    <Sparkles className="h-4 w-4" />
-                                    {proposalLoading ? 'Analizando semana...' : 'Generar propuesta semanal'}
+                                    {proposalLoading ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Sparkles className="h-4 w-4" />
+                                    )}
+                                    {proposalLoading ? 'Generando semana...' : 'Generar propuesta semanal'}
                                 </button>
 
                             </div>
@@ -1257,6 +1283,10 @@ export const AnalisisSemanal: React.FC = () => {
                                         {proposalDates.map(fecha => {
 
                                             const selected = selectedTrainingDates.includes(fecha);
+                                            const configuredTraining = data.trainings.find(
+                                                training => training.fecha === fecha
+                                            );
+                                            const locked = Boolean(configuredTraining);
                                             const parsedDate = fromIso(fecha);
 
                                             return (
@@ -1264,10 +1294,18 @@ export const AnalisisSemanal: React.FC = () => {
                                                     key={fecha}
                                                     type="button"
                                                     onClick={() => toggleTrainingDate(fecha)}
+                                                    disabled={locked}
+                                                    title={
+                                                        locked
+                                                            ? 'Sesión ya guardada. Modifícala desde su planificación.'
+                                                            : undefined
+                                                    }
                                                     className={`rounded-xl border p-3 text-left transition ${
-                                                        selected
-                                                            ? 'border-primary-300 bg-primary-500 text-white'
-                                                            : 'border-white/15 bg-white/5 text-primary-100 hover:bg-white/10'
+                                                        locked
+                                                            ? 'cursor-not-allowed border-emerald-300/40 bg-emerald-400/10 text-emerald-50'
+                                                            : selected
+                                                                ? 'border-primary-300 bg-primary-500 text-white'
+                                                                : 'border-white/15 bg-white/5 text-primary-100 hover:bg-white/10'
                                                     }`}
                                                 >
                                                     <p className="text-xs font-bold uppercase">
@@ -1279,7 +1317,11 @@ export const AnalisisSemanal: React.FC = () => {
                                                     </p>
 
                                                     <p className="mt-1 text-xs font-semibold">
-                                                        {selected ? 'Entrenamiento' : 'Descanso'}
+                                                        {locked
+                                                            ? 'Configurado · bloqueado'
+                                                            : selected
+                                                                ? 'Entrenamiento'
+                                                                : 'Descanso'}
                                                     </p>
                                                 </button>
                                             );
@@ -1338,7 +1380,14 @@ export const AnalisisSemanal: React.FC = () => {
 
                             <div className="divide-y divide-slate-200">
 
-                                {weeklyProposal.days.map(day => {
+                                {weeklyProposal.days
+                                    .filter(
+                                        day =>
+                                            !data.trainings.some(
+                                                training => training.fecha === day.fecha
+                                            )
+                                    )
+                                    .map(day => {
 
                                     const parsedDate = fromIso(day.fecha);
 
@@ -1489,6 +1538,9 @@ export const AnalisisSemanal: React.FC = () => {
                                                                 {session.target.load_score}
                                                                 <span className="ml-1 text-[11px] text-slate-400">/100</span>
                                                             </span>
+                                                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ring-1 ${loadStyle(levelFromScore(session.target.load_score)).badge}`}>
+                                                                {levelFromScore(session.target.load_score)}
+                                                            </span>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => changeTargetLoad(day.fecha, 5)}
@@ -1526,7 +1578,7 @@ export const AnalisisSemanal: React.FC = () => {
 
                                                         <div className="ml-auto flex items-center gap-2">
                                                             <span className={`rounded-full px-2.5 py-1 text-xs font-black ring-1 ${loadStyle(session.estimated_proposal.level).badge}`}>
-                                                                {Math.round(session.estimated_proposal.score)}/100 · {session.estimated_proposal.level}
+                                                                Estimada {Math.round(session.estimated_proposal.score)}/100 · {session.estimated_proposal.level}
                                                             </span>
 
                                                             {settingsChangedDates.has(day.fecha) && (
@@ -1534,9 +1586,13 @@ export const AnalisisSemanal: React.FC = () => {
                                                                     type="button"
                                                                     onClick={() => recalculateDayWithScoutIA(day.fecha)}
                                                                     disabled={recalculatingDate === day.fecha}
-                                                                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary-700 px-3 py-2 text-xs font-black text-white hover:bg-primary-800 disabled:opacity-60"
+                                                                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary-700 px-3 py-2 text-xs font-black text-white hover:bg-primary-800 disabled:cursor-wait disabled:opacity-60"
                                                                 >
-                                                                    <WandSparkles className="h-4 w-4" />
+                                                                    {recalculatingDate === day.fecha ? (
+                                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                                    ) : (
+                                                                        <WandSparkles className="h-4 w-4" />
+                                                                    )}
                                                                     {recalculatingDate === day.fecha ? 'Ajustando...' : 'Aplicar'}
                                                                 </button>
                                                             )}
